@@ -1,0 +1,19 @@
+name: J2MEDecade
+options:
+  bundleIdPrefix: com.decade
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  J2MEDecade:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - J2MEDecade
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.decade.j2me
+      INFOPLIST_FILE: J2MEDecade/Info.plist
+      TARGETED_DEVICE_FAMILY: "1,2"
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+      SWIFT_VERSION: "5.0"

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>J2ME Decade iOS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Top Decade Multi-Tab Bar -->
+        <header id="tab-bar">
+            <div id="tabs-scroll">
+                <div class="tab-item active" data-slot="1">
+                    <span class="tab-title">Tab 1</span>
+                    <button class="tab-close" data-slot="1">&times;</button>
+                </div>
+            </div>
+            <button id="btn-add-tab" title="Thêm Tab mới">+</button>
+            <button id="btn-menu" title="Cài đặt Decade">&#9776;</button>
+        </header>
+
+        <!-- Main Game Screen Area -->
+        <main id="game-container">
+            <div id="screen-wrapper">
+                <canvas id="game-canvas" width="240" height="320"></canvas>
+                <div id="game-overlay-status">
+                    <span id="slot-indicator">SLOT 1</span>
+                    <span id="fps-counter">60 FPS</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Retro Virtual Keypad (Bàn phím ảo J2ME) -->
+        <footer id="keypad">
+            <div class="keypad-row soft-keys">
+                <button class="key-btn" data-key="SOFT_LEFT">LSK</button>
+                <button class="key-btn" data-key="UP">&#9650;</button>
+                <button class="key-btn" data-key="SOFT_RIGHT">RSK</button>
+            </div>
+            <div class="keypad-row dpad-middle">
+                <button class="key-btn" data-key="LEFT">&#9664;</button>
+                <button class="key-btn dpad-center" data-key="FIRE">OK</button>
+                <button class="key-btn" data-key="RIGHT">&#9654;</button>
+            </div>
+            <div class="keypad-row">
+                <button class="key-btn" data-key="CALL">&#128222;</button>
+                <button class="key-btn" data-key="DOWN">&#9660;</button>
+                <button class="key-btn" data-key="END">&#128225;</button>
+            </div>
+            <div class="keypad-grid numpad">
+                <button class="key-btn num" data-key="1">1</button>
+                <button class="key-btn num" data-key="2">2</button>
+                <button class="key-btn num" data-key="3">3</button>
+                <button class="key-btn num" data-key="4">4</button>
+                <button class="key-btn num" data-key="5">5</button>
+                <button class="key-btn num" data-key="6">6</button>
+                <button class="key-btn num" data-key="7">7</button>
+                <button class="key-btn num" data-key="8">8</button>
+                <button class="key-btn num" data-key="9">9</button>
+                <button class="key-btn num" data-key="STAR">*</button>
+                <button class="key-btn num" data-key="0">0</button>
+                <button class="key-btn num" data-key="HASH">#</button>
+            </div>
+        </footer>
+
+        <!-- Settings / Decade Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>KamenRider Decade - Cài Đặt</h2>
+                    <button id="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Section: Load Game -->
+                    <div class="settings-group">
+                        <h3>Nạp Game (.JAR)</h3>
+                        <input type="file" id="jar-file-input" accept=".jar">
+                        <button id="btn-load-demo" class="btn-action">Chạy bản mẫu Ninja School Online</button>
+                    </div>
+
+                    <!-- Section: Thay IP Server -->
+                    <div class="settings-group">
+                        <h3>Thay IP Phiên Bản (NSO Server)</h3>
+                        <label for="server-select">Chọn máy chủ:</label>
+                        <select id="server-select">
+                            <option value="custom">Tự nhập IP/Port...</option>
+                            <option value="112.213.94.135:14444">Server 1 (Bokken)</option>
+                            <option value="112.213.94.136:14444">Server 2 (Shuriken)</option>
+                            <option value="112.213.94.137:14444">Server 3 (Tessen)</option>
+                            <option value="112.213.94.138:14444">Server 4 (Kunai)</option>
+                            <option value="112.213.94.139:14444">Server 5 (Katana)</option>
+                        </select>
+                        <div class="ip-row">
+                            <input type="text" id="custom-ip" placeholder="IP: vd 112.213.94.135">
+                            <input type="number" id="custom-port" placeholder="Port: vd 14444">
+                        </div>
+                        <button id="btn-save-ip" class="btn-action">Lưu IP cho Tab hiện tại</button>
+                    </div>
+
+                    <!-- Section: Proxy Settings -->
+                    <div class="settings-group">
+                        <h3>Quản Lý Proxy Tab</h3>
+                        <div class="toggle-row">
+                            <label for="proxy-toggle">Kích hoạt Proxy cho Tab này:</label>
+                            <input type="checkbox" id="proxy-toggle">
+                        </div>
+                        <select id="proxy-type">
+                            <option value="socks5">SOCKS5</option>
+                            <option value="http">HTTP Connect</option>
+                        </select>
+                        <input type="text" id="proxy-host" placeholder="Host / IP Proxy">
+                        <input type="number" id="proxy-port" placeholder="Port Proxy">
+                        <input type="text" id="proxy-user" placeholder="User (nếu có)">
+                        <input type="password" id="proxy-pass" placeholder="Mật khẩu (nếu có)">
+                        <button id="btn-test-proxy" class="btn-action">Kiểm tra kết nối Proxy</button>
+                    </div>
+
+                    <!-- Section: Screen scaling -->
+                    <div class="settings-group">
+                        <h3>Hiển Thị & FPS</h3>
+                        <label>Tỷ lệ hiển thị:</label>
+                        <select id="scale-select">
+                            <option value="fit">Vừa màn hình (Fit)</option>
+                            <option value="1x">1x (240x320 Gốc)</option>
+                            <option value="2x">2x Phóng to</option>
+                            <option value="stretch">Toàn màn hình (Stretch)</option>
+                        </select>
+                        <div class="toggle-row">
+                            <label for="bg-fps-toggle">Hạ FPS khi ẩn tab (5 FPS):</label>
+                            <input type="checkbox" id="bg-fps-toggle" checked>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
