@@ -158,7 +158,7 @@ class AppsListViewController: UIViewController,
     // MARK: - Import JAR from Files
     // ============================================================
 
-    private func addAppTapped() {
+    @objc private func addAppTapped() {
         let jarType = UTType(filenameExtension: "jar") ?? .data
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [jarType])
         picker.delegate = self
