@@ -698,69 +698,43 @@ class GameViewController: UIViewController {
         view.bringSubviewToFront(backButton)
     }
 
-    // ============================================================
-    // MARK: - J2ME UI Command handling
-    // ============================================================
+    func showAlert() {
+        let title = String(cString: j2me_ui_get_form_title())
+        let text = String(cString: j2me_ui_get_alert_text())
 
-    func handleUIEvent(type: Int32, title: String?, text: String?,
-                       cmdId: Int32, cmdType: Int32, extra: Int32) {
-        switch type {
-        case Int32(J2ME_UI_FORM_BEGIN):
-            formView.beginForm(title: title ?? "", count: extra)
-            showFormView()
+        let alert = UIAlertController(title: title, message: text, preferredStyle: .alert)
 
-        case Int32(J2ME_UI_FORM_ADD_STRING):
-            formView.addStringItem(label: title ?? "", text: text ?? "", itemId: extra)
+        alertTimeoutWork?.cancel()
+        alertTimeoutWork = nil
 
-        case Int32(J2ME_UI_FORM_ADD_TEXT_FIELD):
-            formView.addTextField(label: title ?? "", text: text ?? "",
-                                  itemId: extra, maxSize: Int(cmdType))
-
-        case Int32(J2ME_UI_FORM_ADD_COMMAND):
-            formView.addCommand(label: title ?? "", cmdId: cmdId,
-                                cmdType: cmdType, priority: extra)
-
-        case Int32(J2ME_UI_FORM_SHOW):
-            showFormView()
-
-        case Int32(J2ME_UI_CANVAS_SHOW):
-            showCanvasView()
-
-        case Int32(J2ME_UI_ALERT_SHOW):
-            showAlert(title: title ?? "Alert", message: text ?? "",
-                      timeout: Int(extra))
-
-        case Int32(J2ME_UI_COMMANDS_UPDATED):
-            numpadView?.updateCommands()
-
-        case Int32(J2ME_UI_LIST_ADD_ITEM):
-            listView.addItem(text ?? "")
-            showListView()
-
-        case Int32(J2ME_UI_LIST_SET_TYPE):
-            listView.setListType(Int(extra))
-
-        default:
-            break
+        let cmdCount = j2me_ui_get_command_count()
+        if cmdCount == 0 {
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                self?.alertTimeoutWork?.cancel()
+                j2me_input_post_key(Int32(J2ME_UI_ALERT_DISMISSED), 0)
+            })
+        } else {
+            for i in 0..<cmdCount {
+                let label = String(cString: j2me_ui_get_command_label(Int32(i)))
+                let cmdId = j2me_ui_get_command_id(Int32(i))
+                alert.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
+                    self?.alertTimeoutWork?.cancel()
+                    j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmdId)
+                })
+            }
         }
-    }
 
-    private func showAlert(title: String, message: String, timeout: Int) {
-        let alert = UIAlertController(title: title, message: message,
-                                      preferredStyle: .alert)
-        if timeout == -2 /* FOREVER */ {
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-        }
         present(alert, animated: true)
 
+        let timeout = j2me_ui_get_alert_timeout()
         if timeout > 0 {
-            alertTimeoutWork?.cancel()
             let work = DispatchWorkItem { [weak alert] in
-                alert?.dismiss(animated: true)
+                alert?.dismiss(animated: true) {
+                    j2me_input_post_key(Int32(J2ME_UI_ALERT_DISMISSED), 0)
+                }
             }
             alertTimeoutWork = work
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + .milliseconds(timeout), execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(timeout) / 1000.0, execute: work)
         }
     }
 }
@@ -769,16 +743,17 @@ class GameViewController: UIViewController {
 // Global active GameViewController reference
 // ============================================================
 
-private weak var activeGameViewController: GameViewController?
+private(set) weak var activeGameViewController: GameViewController?
 
-let gameUICallback: @convention(c) (Int32, UnsafePointer<CChar>?,
-                                    UnsafePointer<CChar>?,
-                                    Int32, Int32, Int32) -> Void = { type, titlePtr, textPtr, cmdId, cmdType, extra in
-    let title = titlePtr.map { String(cString: $0) }
-    let text = textPtr.map { String(cString: $0) }
+let gameUICallback: @convention(c) (Int32, UnsafePointer<CChar>?) -> Void = { action, data in
     DispatchQueue.main.async {
-        activeGameViewController?.handleUIEvent(type: type, title: title,
-                                                 text: text, cmdId: cmdId,
-                                                 cmdType: cmdType, extra: extra)
+        guard let vc = activeGameViewController else { return }
+        switch action {
+        case Int32(J2ME_UI_ACTION_SHOW_CANVAS):  vc.showCanvasView()
+        case Int32(J2ME_UI_ACTION_SHOW_FORM):    vc.showFormView()
+        case Int32(J2ME_UI_ACTION_SHOW_LIST):    vc.showListView()
+        case Int32(J2ME_UI_ACTION_SHOW_ALERT):   vc.showAlert()
+        default: break
+        }
     }
 }
