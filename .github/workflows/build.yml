@@ -39,6 +39,12 @@ jobs:
           fi
           echo "Found App at: $APP_PATH"
           cp -R "$APP_PATH" Payload/
+          # Copy Web files to both root and Web/ subdirectory
+          mkdir -p Payload/J2MEDecade.app/Web
+          cp -R J2MEDecade/Web/* Payload/J2MEDecade.app/Web/
+          cp -R J2MEDecade/Web/* Payload/J2MEDecade.app/
+          echo "=== Content of App Bundle ==="
+          ls -la Payload/J2MEDecade.app/
           zip -r J2ME-Decade.ipa Payload/
 
       - name: Upload IPA Artifact

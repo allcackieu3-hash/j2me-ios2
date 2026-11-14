@@ -9,7 +9,12 @@ targets:
     platform: iOS
     deploymentTarget: "15.0"
     sources:
-      - J2MEDecade
+      - path: J2MEDecade/AppDelegate.swift
+      - path: J2MEDecade/SceneDelegate.swift
+      - path: J2MEDecade/ViewController.swift
+      - path: J2MEDecade/LaunchScreen.storyboard
+      - path: J2MEDecade/Web
+        type: folder
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.decade.j2me
       INFOPLIST_FILE: J2MEDecade/Info.plist
