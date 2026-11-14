@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KamenRider Decade</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        window.onerror = function (msg, url, line, col, error) {
+            console.error('[Decade Error]', msg, url, line, error);
+            var file = url ? url.split('/').pop() : 'inline';
+            alert('Lỗi JS: ' + msg + '\nTại: ' + file + ':' + line);
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('[Decade Promise Rejection]', event.reason);
+            alert('Lỗi Async: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
+        });
+    </script>
     <!-- J2ME Virtual Machine Core -->
     <script src="js/zip/zip.js"></script>
     <script src="js/zip/inflate.js"></script>
@@ -121,11 +132,11 @@
             <footer id="virtual-keypad-panel">
                 <div class="dpad-container" id="dpad-view">
                     <!-- Hàng 1: L, ↖, ↑, ↗, R -->
-                    <button class="soft-key" data-key="SOFT_LEFT">L</button>
+                    <button class="soft-key" id="choice" data-key="SOFT_LEFT">L</button>
                     <button class="soft-key key-arrow" data-key="UP_LEFT">&#8598;</button>
                     <button class="soft-key key-arrow" data-key="UP">&#8593;</button>
                     <button class="soft-key key-arrow" data-key="UP_RIGHT">&#8599;</button>
-                    <button class="soft-key" data-key="SOFT_RIGHT">R</button>
+                    <button class="soft-key" id="back" data-key="SOFT_RIGHT">R</button>
 
                     <!-- Hàng 2: ←, (trống), F, (trống), → -->
                     <button class="soft-key key-arrow" data-key="LEFT">&#8592;</button>
@@ -255,5 +266,11 @@
 
     <!-- Application Script -->
     <script src="app.js"></script>
+
+    <!-- Hidden compatibility elements -->
+    <div id="hidden-compat" style="display:none !important;" aria-hidden="true">
+        <div id="title"></div>
+        <div id="alert"></div>
+    </div>
 </body>
 </html>

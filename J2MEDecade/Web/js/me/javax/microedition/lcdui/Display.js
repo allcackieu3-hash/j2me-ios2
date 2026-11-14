@@ -9,38 +9,42 @@ js2me.createClass({
 			midlet.display.element = element;
 			this.choiceButton = document.getElementById('choice');
 			this.backButton = document.getElementById('back');
-			this.choiceButton.addEventListener('mousedown', function () {
-				var displayable = midlet.display.current;
-				function getItem(i) {
-					var item = document.createElement('div');
-					item.innerHTML = displayable.currentCommands[i].label.text;
-					item.className = 'item';
-					item.onclick = function () {
-						var command = displayable.currentCommands[i];
-						displayable.display.$setCurrent$Ljavax_microedition_lcdui_Displayable_$V(displayable);
-						displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(command, displayable);
-					}
-					return item;
-				};
-				if (displayable && displayable.commandListener) {
-					displayable.currentCommands = displayable.choiceCommands;
-					if (displayable.choiceCommands.length == 1) {
-						displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(displayable.choiceCommands[0], displayable);
-					}
-					if (displayable.choiceCommands.length > 1) {
-						element.innerHTML = '';
-						for (var i = 0; i < displayable.currentCommands.length; i++) {
-							element.appendChild(getItem(i));
+			if (this.choiceButton) {
+				this.choiceButton.addEventListener('mousedown', function () {
+					var displayable = midlet.display.current;
+					function getItem(i) {
+						var item = document.createElement('div');
+						item.innerHTML = displayable.currentCommands[i].label.text;
+						item.className = 'item';
+						item.onclick = function () {
+							var command = displayable.currentCommands[i];
+							displayable.display.$setCurrent$Ljavax_microedition_lcdui_Displayable_$V(displayable);
+							displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(command, displayable);
+						}
+						return item;
+					};
+					if (displayable && displayable.commandListener) {
+						displayable.currentCommands = displayable.choiceCommands;
+						if (displayable.choiceCommands.length == 1) {
+							displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(displayable.choiceCommands[0], displayable);
+						}
+						if (displayable.choiceCommands.length > 1) {
+							element.innerHTML = '';
+							for (var i = 0; i < displayable.currentCommands.length; i++) {
+								element.appendChild(getItem(i));
+							}
 						}
 					}
-				}
-			});
-			this.backButton.addEventListener('mousedown', function () {
-				var displayable = midlet.display.current;
-				if (displayable && displayable.backCommands.length == 1 && displayable.commandListener) {
-					displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(displayable.backCommands[0], displayable);
-				}
-			});
+				});
+			}
+			if (this.backButton) {
+				this.backButton.addEventListener('mousedown', function () {
+					var displayable = midlet.display.current;
+					if (displayable && displayable.backCommands.length == 1 && displayable.commandListener) {
+						displayable.commandListener.$commandAction$Ljavax_microedition_lcdui_Command_Ljavax_microedition_lcdui_Displayable_$V(displayable.backCommands[0], displayable);
+					}
+				});
+			}
 		}
 		return midlet.display;
 	},
@@ -87,6 +91,17 @@ js2me.createClass({
 				}
 				if (js2me.setFullscreen) {
 					js2me.setFullscreen(displayable.fullscreen);
+				}
+				// Immediate active canvas start & repaint without relying on deprecated DOMNodeInserted
+				if (displayable.keyPressListener) {
+					js2me.addEventListener('keypress', displayable.keyPressListener);
+					js2me.addEventListener('keyreleased', displayable.keyReleasedListener);
+				}
+				if (displayable.$showNotify$$V) {
+					js2me.launchThread(function () {
+						displayable.$repaint$$V();
+						displayable.$showNotify$$V();
+					});
 				}
 			}
 		}, 1);

@@ -136,7 +136,8 @@ js2me.createClass({
 			this.calls++;
 			var time = Date.now();
 			if (time - this.time > 1000) {
-				document.getElementById('title').innerHTML = this.calls;
+				var titleEl = document.getElementById('title');
+				if (titleEl) titleEl.innerHTML = this.calls;
 				this.time = time;
 				this.calls = 0;
 			}

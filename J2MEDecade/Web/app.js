@@ -44,15 +44,23 @@
 
         // Preload nic.jar bundled in app
         preloadEmbeddedGame() {
-            fetch('nic.jar')
-                .then(res => res.blob())
-                .then(blob => {
-                    this.embeddedJarBlob = blob;
-                    console.log('[Decade] Bundled nic.jar preloaded (' + blob.size + ' bytes)');
-                })
-                .catch(err => {
-                    console.warn('[Decade] Preload nic.jar error:', err);
-                });
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', 'nic.jar', true);
+                xhr.responseType = 'blob';
+                xhr.onload = () => {
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        this.embeddedJarBlob = xhr.response;
+                        console.log('[Decade] Bundled nic.jar preloaded (' + xhr.response.size + ' bytes)');
+                    }
+                };
+                xhr.onerror = (e) => {
+                    console.warn('[Decade] Preload nic.jar XHR error:', e);
+                };
+                xhr.send();
+            } catch (err) {
+                console.warn('[Decade] Preload nic.jar exception:', err);
+            }
         },
 
         // Navigation between Home and In-Game Screen
@@ -132,20 +140,32 @@
 
         bindUI() {
             // Tap Game "a" on Home Screen
-            document.getElementById('item-game-a').addEventListener('click', () => {
+            const gameA = document.getElementById('item-game-a');
+            const openGameA = () => {
                 if (this.embeddedJarBlob) {
                     this.launchGame(this.embeddedJarBlob, 'a');
                 } else {
-                    fetch('nic.jar')
-                        .then(res => res.blob())
-                        .then(blob => {
-                            this.embeddedJarBlob = blob;
-                            this.launchGame(blob, 'a');
-                        })
-                        .catch(err => {
-                            alert('Chưa nạp được game a: ' + err.message);
-                        });
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', 'nic.jar', true);
+                    xhr.responseType = 'blob';
+                    xhr.onload = () => {
+                        if (xhr.status === 200 || xhr.status === 0) {
+                            this.embeddedJarBlob = xhr.response;
+                            this.launchGame(xhr.response, 'a');
+                        } else {
+                            alert('Chưa mở được nic.jar (Mã lỗi ' + xhr.status + ')');
+                        }
+                    };
+                    xhr.onerror = (err) => {
+                        alert('Lỗi nạp game a: ' + err);
+                    };
+                    xhr.send();
                 }
+            };
+            gameA.addEventListener('click', openGameA);
+            gameA.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                openGameA();
             });
 
             // FAB "+" Button to pick other JARs

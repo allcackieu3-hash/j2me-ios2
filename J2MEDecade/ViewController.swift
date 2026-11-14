@@ -18,6 +18,8 @@ class ViewController: UIViewController, WKUIDelegate, WKNavigationDelegate, WKSc
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
 
         let contentController = WKUserContentController()
         contentController.add(self, name: "decadeNative")
@@ -38,8 +40,7 @@ class ViewController: UIViewController, WKUIDelegate, WKNavigationDelegate, WKSc
     private func loadLocalContent() {
         // 1. Try finding index.html in Web folder reference
         if let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "Web") {
-            let baseDir = url.deletingLastPathComponent()
-            webView.loadFileURL(url, allowingReadAccessTo: baseDir)
+            webView.loadFileURL(url, allowingReadAccessTo: Bundle.main.bundleURL)
             return
         }
 
