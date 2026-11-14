@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ipa:
     runs-on: macos-15
@@ -53,3 +56,18 @@ jobs:
           name: J2ME-Decade-IPA
           path: J2ME-Decade.ipa
           retention-days: 14
+
+      - name: Create or Update Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: v1.0-decade
+          name: "J2ME Decade iOS v1.0"
+          body: |
+            ## J2ME Decade iOS - KamenRider Decade Multi-Tab Edition
+            - **Đã loại bỏ hoàn toàn hệ thống âm thanh** (tiết kiệm CPU, không gây lag giật âm thanh).
+            - **Tích hợp nhân máy ảo Java J2ME** (chạy game .jar trực tiếp trên iPhone).
+            - **Cầu nối mạng Socket TCP Native** qua Swift Network.framework.
+            - **Đa Tab (Multi-Tab)**, đổi IP Server NSO (Bokken, Shuriken, Tessen, Kunai, Katana) & Proxy SOCKS5/HTTP per slot.
+            - **Cài đặt**: Kéo file `J2ME-Decade.ipa` vào Sideloadly hoặc 3uTools để cài lên iPhone.
+          files: J2ME-Decade.ipa

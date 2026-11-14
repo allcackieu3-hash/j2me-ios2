@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>J2ME Decade iOS</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Engine Core (J2ME / CLDC Bytecode Engine - No Audio Overhead) -->
+    <script src="js/zip/zip.js"></script>
+    <script src="js/zip/inflate.js"></script>
+    <script src="js/zip/zip-ext.js"></script>
+    <script src="js/js2me.js"></script>
+    <script src="js/bufferStream.js"></script>
+    <script src="js/convert.js"></script>
+    <script src="js/classes.js"></script>
+    <script src="js/emulator.js"></script>
+    <script src="js/execute.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/manifest.js"></script>
+    <script src="js/methodStub.js"></script>
+    <script src="js/launcher.js"></script>
+    <script src="js/loader.js"></script>
+    <script src="js/numbers.js"></script>
+    <script src="js/resources.js"></script>
+    <script src="js/threads.js"></script>
+    <script src="js/utils.js"></script>
 </head>
 <body>
     <div id="app-container">
@@ -23,9 +42,10 @@
         <!-- Main Game Screen Area -->
         <main id="game-container">
             <div id="screen-wrapper">
-                <canvas id="game-canvas" width="240" height="320"></canvas>
+                <div id="screen"></div>
                 <div id="game-overlay-status">
                     <span id="slot-indicator">SLOT 1</span>
+                    <span id="net-indicator" style="color: #68d391;">NET: DIRECT</span>
                     <span id="fps-counter">60 FPS</span>
                 </div>
             </div>
@@ -34,9 +54,9 @@
         <!-- Retro Virtual Keypad (Bàn phím ảo J2ME) -->
         <footer id="keypad">
             <div class="keypad-row soft-keys">
-                <button class="key-btn" data-key="SOFT_LEFT">LSK</button>
+                <button class="key-btn" data-key="SOFT_LEFT" id="choice">LSK</button>
                 <button class="key-btn" data-key="UP">&#9650;</button>
-                <button class="key-btn" data-key="SOFT_RIGHT">RSK</button>
+                <button class="key-btn" data-key="SOFT_RIGHT" id="back">RSK</button>
             </div>
             <div class="keypad-row dpad-middle">
                 <button class="key-btn" data-key="LEFT">&#9664;</button>
@@ -75,14 +95,15 @@
                     <!-- Section: Load Game -->
                     <div class="settings-group">
                         <h3>Nạp Game (.JAR)</h3>
-                        <input type="file" id="jar-file-input" accept=".jar">
-                        <button id="btn-load-demo" class="btn-action">Chạy bản mẫu Ninja School Online</button>
+                        <p style="font-size: 12px; color: #a0aec0; margin-bottom: 8px;">Chọn file .jar từ ứng dụng Tệp (Files) của iPhone hoặc tải từ web.</p>
+                        <input type="file" id="jar-file-input" accept=".jar,application/java-archive,*/*">
+                        <button id="btn-load-demo" class="btn-action">Chạy Demo Mẫu</button>
                     </div>
 
                     <!-- Section: Thay IP Server -->
                     <div class="settings-group">
                         <h3>Thay IP Phiên Bản (NSO Server)</h3>
-                        <label for="server-select">Chọn máy chủ:</label>
+                        <label for="server-select">Chọn máy chủ Ninja School:</label>
                         <select id="server-select">
                             <option value="custom">Tự nhập IP/Port...</option>
                             <option value="112.213.94.135:14444">Server 1 (Bokken)</option>
@@ -98,44 +119,37 @@
                         <button id="btn-save-ip" class="btn-action">Lưu IP cho Tab hiện tại</button>
                     </div>
 
-                    <!-- Section: Proxy Settings -->
+                    <!-- Section: Proxy Cấu hình từng Slot -->
                     <div class="settings-group">
-                        <h3>Quản Lý Proxy Tab</h3>
-                        <div class="toggle-row">
-                            <label for="proxy-toggle">Kích hoạt Proxy cho Tab này:</label>
-                            <input type="checkbox" id="proxy-toggle">
-                        </div>
+                        <h3>Quản Lý Proxy Theo Tab (Per-Slot Proxy)</h3>
+                        <label for="proxy-type">Loại Proxy:</label>
                         <select id="proxy-type">
-                            <option value="socks5">SOCKS5</option>
-                            <option value="http">HTTP Connect</option>
+                            <option value="DIRECT">Không dùng proxy (Direct)</option>
+                            <option value="SOCKS5">SOCKS5 Proxy</option>
+                            <option value="HTTP">HTTP CONNECT Proxy</option>
                         </select>
-                        <input type="text" id="proxy-host" placeholder="Host / IP Proxy">
-                        <input type="number" id="proxy-port" placeholder="Port Proxy">
-                        <input type="text" id="proxy-user" placeholder="User (nếu có)">
-                        <input type="password" id="proxy-pass" placeholder="Mật khẩu (nếu có)">
-                        <button id="btn-test-proxy" class="btn-action">Kiểm tra kết nối Proxy</button>
+                        <div class="ip-row">
+                            <input type="text" id="proxy-host" placeholder="Proxy Host (vd: 103.1.2.3)">
+                            <input type="number" id="proxy-port" placeholder="Proxy Port (vd: 1080)">
+                        </div>
+                        <button id="btn-save-proxy" class="btn-action">Áp dụng Proxy cho Tab này</button>
                     </div>
 
-                    <!-- Section: Screen scaling -->
+                    <!-- Section: Hệ thống & Âm thanh -->
                     <div class="settings-group">
-                        <h3>Hiển Thị & FPS</h3>
-                        <label>Tỷ lệ hiển thị:</label>
-                        <select id="scale-select">
-                            <option value="fit">Vừa màn hình (Fit)</option>
-                            <option value="1x">1x (240x320 Gốc)</option>
-                            <option value="2x">2x Phóng to</option>
-                            <option value="stretch">Toàn màn hình (Stretch)</option>
-                        </select>
-                        <div class="toggle-row">
-                            <label for="bg-fps-toggle">Hạ FPS khi ẩn tab (5 FPS):</label>
-                            <input type="checkbox" id="bg-fps-toggle" checked>
-                        </div>
+                        <h3>Tối Ưu Hóa & Thông Tin</h3>
+                        <p style="font-size: 13px; color: #cbd5e0;">
+                            &#10003; Đã loại bỏ hoàn toàn module âm thanh (0% CPU âm thanh).<br>
+                            &#10003; Hỗ trợ chạy đa tab độc lập kèm RMS riêng từng tab.<br>
+                            &#10003; Cầu nối Socket TCP Native Network.framework qua Swift.
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Application Controller -->
     <script src="app.js"></script>
 </body>
 </html>
