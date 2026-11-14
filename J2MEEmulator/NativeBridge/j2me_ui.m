@@ -51,6 +51,22 @@ static int g_list_type = 0; // IMPLICIT=3, EXCLUSIVE=1, MULTIPLE=2
 static char g_alert_text[1024] = "";
 static int g_alert_timeout = -2; // FOREVER
 
+// TextBox buffer
+static char g_textbox_text[2048] = "";
+
+void j2me_ui_set_textbox_text(const char *text) {
+    if (text) {
+        strncpy(g_textbox_text, text, sizeof(g_textbox_text) - 1);
+        g_textbox_text[sizeof(g_textbox_text) - 1] = '\0';
+    } else {
+        g_textbox_text[0] = '\0';
+    }
+}
+
+const char *j2me_ui_get_textbox_text(void) {
+    return g_textbox_text;
+}
+
 static j2me_ui_callback g_ui_callback = NULL;
 
 void j2me_ui_set_callback(j2me_ui_callback callback) {
@@ -128,6 +144,10 @@ static s32 n_formAddStringItem(Runtime *runtime, JClass *clazz) {
         Utf8String *u = utf8_create();
         env->jstring_2_utf8(jtext, u, runtime);
         strncpy(item->text, utf8_cstr(u), sizeof(item->text) - 1);
+        if (g_form_type == 3) { // TextBox: seed g_textbox_text
+            strncpy(g_textbox_text, utf8_cstr(u), sizeof(g_textbox_text) - 1);
+            g_textbox_text[sizeof(g_textbox_text) - 1] = '\0';
+        }
         utf8_destroy(u);
     }
     return RUNTIME_STATUS_NORMAL;
@@ -158,6 +178,10 @@ static s32 n_formAddTextField(Runtime *runtime, JClass *clazz) {
         Utf8String *u = utf8_create();
         env->jstring_2_utf8(jtext, u, runtime);
         strncpy(item->text, utf8_cstr(u), sizeof(item->text) - 1);
+        if (g_form_type == 3) { // TextBox: seed g_textbox_text
+            strncpy(g_textbox_text, utf8_cstr(u), sizeof(g_textbox_text) - 1);
+            g_textbox_text[sizeof(g_textbox_text) - 1] = '\0';
+        }
         utf8_destroy(u);
     }
     return RUNTIME_STATUS_NORMAL;
@@ -270,6 +294,28 @@ static s32 n_platformRequest(Runtime *runtime, JClass *clazz) {
     return RUNTIME_STATUS_NORMAL;
 }
 
+static s32 n_getTextBoxText(Runtime *runtime, JClass *clazz) {
+    JniEnv *env = runtime->jnienv;
+    Instance *jstr = env->jstring_create_cstr(g_textbox_text, runtime);
+    env->push_ref(runtime->stack, jstr);
+    return RUNTIME_STATUS_NORMAL;
+}
+
+static s32 n_setTextBoxText(Runtime *runtime, JClass *clazz) {
+    JniEnv *env = runtime->jnienv;
+    Instance *jtext = env->localvar_getRefer(runtime->localvar, 0);
+    if (jtext) {
+        Utf8String *u = utf8_create();
+        env->jstring_2_utf8(jtext, u, runtime);
+        strncpy(g_textbox_text, utf8_cstr(u), sizeof(g_textbox_text) - 1);
+        g_textbox_text[sizeof(g_textbox_text) - 1] = '\0';
+        utf8_destroy(u);
+    } else {
+        g_textbox_text[0] = '\0';
+    }
+    return RUNTIME_STATUS_NORMAL;
+}
+
 // ============================================================
 // Native method table
 // ============================================================
@@ -287,6 +333,8 @@ static java_native_method j2me_ui_methods[] = {
     {CLS, "setListType",      "(I)V",                                            n_setListType},
     {CLS, "setAlertText",     "(Ljava/lang/String;I)V",                          n_setAlertText},
     {CLS, "platformRequest",  "(Ljava/lang/String;)V",                           n_platformRequest},
+    {CLS, "getTextBoxText",   "()Ljava/lang/String;",                            n_getTextBoxText},
+    {CLS, "setTextBoxText",   "(Ljava/lang/String;)V",                           n_setTextBoxText},
 };
 
 #undef CLS

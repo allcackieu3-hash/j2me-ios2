@@ -85,6 +85,37 @@ class AppsListViewController: UIViewController,
             emptyStateLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 40),
         ])
 
+        title = "KamenRider Decade"
+        let navBarAppearance = UINavigationBarAppearance()
+        navBarAppearance.configureWithOpaqueBackground()
+        navBarAppearance.backgroundColor = UIColor(red: 0.13, green: 0.13, blue: 0.13, alpha: 1.0)
+        navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 18, weight: .bold)]
+        navigationController?.navigationBar.standardAppearance = navBarAppearance
+        navigationController?.navigationBar.scrollEdgeAppearance = navBarAppearance
+        navigationController?.navigationBar.tintColor = .white
+
+        // Red Floating Action Button (+) matching Decade Android
+        let fab = UIButton(type: .system)
+        fab.setTitle("+", for: .normal)
+        fab.titleLabel?.font = .systemFont(ofSize: 32, weight: .light)
+        fab.setTitleColor(.white, for: .normal)
+        fab.backgroundColor = UIColor(red: 0.96, green: 0.26, blue: 0.21, alpha: 1.0)
+        fab.layer.cornerRadius = 28
+        fab.layer.shadowColor = UIColor.black.cgColor
+        fab.layer.shadowOffset = CGSize(width: 0, height: 4)
+        fab.layer.shadowRadius = 6
+        fab.layer.shadowOpacity = 0.35
+        fab.addTarget(self, action: #selector(addAppTapped), for: .touchUpInside)
+        fab.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(fab)
+
+        NSLayoutConstraint.activate([
+            fab.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
+            fab.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24),
+            fab.widthAnchor.constraint(equalToConstant: 56),
+            fab.heightAnchor.constraint(equalToConstant: 56),
+        ])
+
         // Ensure games directory exists
         try? FileManager.default.createDirectory(atPath: Self.gamesDirectory,
                                                   withIntermediateDirectories: true)

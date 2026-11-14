@@ -66,6 +66,8 @@ public class Display {
             ((Form) d).showNative();
         } else if (d instanceof List) {
             ((List) d).showNative();
+        } else if (d instanceof TextBox) {
+            ((TextBox) d).showNative();
         } else if (d instanceof Alert) {
             ((Alert) d).showNative();
         }
@@ -161,6 +163,16 @@ public class Display {
                     Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, nativeEvent[3]));
                 } else if (type == 10) {
                     int cmdId = nativeEvent[3];
+                    if (current instanceof TextBox) {
+                        try {
+                            String txt = NativeBridge.getTextBoxText();
+                            if (txt != null) {
+                                ((TextBox) current).setString(txt);
+                            }
+                        } catch (Throwable t) {
+                            System.out.println("[Display] Error reading TextBox text: " + t);
+                        }
+                    }
                     if (current != null) current.fireCommandAction(cmdId);
                 } else if (type == 11 && current instanceof List) {
                     ((List) current).handleListSelect(nativeEvent[3]);
