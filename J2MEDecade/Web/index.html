@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KamenRider Decade</title>
     <link rel="stylesheet" href="style.css">
-    <!-- J2ME Engine (No Audio Overhead) -->
+    <!-- J2ME Virtual Machine Core -->
     <script src="js/zip/zip.js"></script>
     <script src="js/zip/inflate.js"></script>
     <script src="js/zip/zip-ext.js"></script>
@@ -26,144 +26,234 @@
     <script src="js/utils.js"></script>
 </head>
 <body>
-    <div id="app-container">
-        <!-- 1. Android Decade Style Toolbar -->
-        <header id="toolbar">
-            <div class="toolbar-title">
-                <span>KamenRider</span>
-                <span class="decade-badge">DECADE</span>
-            </div>
-            <div class="toolbar-actions">
-                <button id="btn-add-one" class="tool-btn" title="Thêm 1 Tab">+</button>
-                <button id="btn-add-many" class="tool-btn" title="Thêm nhiều Tab">++</button>
-                <button id="btn-menu" class="tool-btn" title="Cài đặt Decade">&#9776;</button>
-            </div>
-        </header>
+    <div id="app-root">
 
-        <!-- 2. Decade Tab Bar -->
-        <nav id="tab-bar">
-            <div id="tabs-scroll">
-                <div class="tab-item active" data-slot="1">
-                    <span class="tab-title">Tab 1</span>
-                    <button class="tab-close" data-slot="1">&times;</button>
+        <!-- ============================================================
+             1. MÀN HÌNH CHÍNH: DANH SÁCH GAME (Ảnh 1 & 5)
+             ============================================================ -->
+        <section id="view-home" class="view-screen">
+            <header id="home-header">
+                <span class="home-title">KamenRider Decade</span>
+                <div class="header-icons">
+                    <!-- Search Icon -->
+                    <button class="icon-btn" id="btn-search">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                    <!-- Filter Icon -->
+                    <button class="icon-btn" id="btn-filter">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>
+                    </button>
+                    <!-- 3-Dots Menu -->
+                    <button class="icon-btn" id="btn-home-menu">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+                    </button>
                 </div>
-            </div>
-        </nav>
+            </header>
 
-        <!-- 3. Game Screen Area -->
-        <main id="game-container">
-            <div id="screen-wrapper">
+            <main id="home-content">
+                <div class="game-list" id="installed-game-list">
+                    <!-- Game Item "a" (Ảnh 1) -->
+                    <div class="game-item" id="item-game-a">
+                        <img src="decade_icon.png" class="game-icon" alt="Decade Icon">
+                        <div class="game-info">
+                            <span class="game-name">a</span>
+                            <span class="game-vendor">Havan</span>
+                        </div>
+                        <span class="game-version">1.0.0</span>
+                    </div>
+                </div>
+
+                <!-- Floating Action Button "+" để nạp thêm JAR -->
+                <button class="fab-btn" id="btn-fab-add" title="Thêm game">+</button>
+                <input type="file" id="fab-file-input" accept=".jar,application/java-archive,*/*" style="display: none;">
+            </main>
+
+            <!-- Popup Menu Màn Hình Chính (Ảnh 5) -->
+            <div id="home-menu-popup" class="popup-menu hidden">
+                <div class="menu-item" id="menu-proxy-manager">Quản lý Proxy</div>
+                <div class="menu-item" id="menu-change-ip">Thay IP Phiên Bản</div>
+                <div class="menu-item" id="menu-settings">Thiết lập</div>
+                <div class="menu-item" id="menu-profiles">Hồ sơ</div>
+                <div class="menu-item" id="menu-help">Trợ giúp</div>
+                <div class="menu-item" id="menu-save-log">Lưu log</div>
+                <div class="menu-item" id="menu-exit">Thoát</div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             2. MÀN HÌNH CHƠI GAME ĐA TAB (Ảnh 3 & 4)
+             ============================================================ -->
+        <section id="view-game" class="view-screen hidden">
+            <!-- Header Trong Game (Ảnh 3) -->
+            <header id="game-header">
+                <div class="game-header-left">
+                    <span class="game-header-title" id="active-game-title">a</span>
+                </div>
+                <div class="game-header-actions">
+                    <button class="text-btn" id="btn-add-many-tabs">++</button>
+                    <button class="text-btn" id="btn-add-one-tab">+</button>
+                    <!-- Keyboard Icon -->
+                    <button class="icon-btn" id="btn-toggle-keypad">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
+                    </button>
+                    <!-- Camera Icon (Screenshot) -->
+                    <button class="icon-btn" id="btn-screenshot">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+                    </button>
+                    <!-- 3-Dots In-Game Menu -->
+                    <button class="icon-btn" id="btn-in-game-menu">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Decade Tab Bar (Các ô vuông xanh số 1, 2, 3...) -->
+            <nav id="decade-tab-strip">
+                <div class="decade-tab-box" data-slot="1">1</div>
+            </nav>
+
+            <!-- Vùng Hiển Thị Canvas Game -->
+            <main id="game-viewport">
                 <div id="screen"></div>
-                <div id="game-overlay-status">
-                    <span id="slot-indicator">SLOT 1</span>
-                    <span id="net-indicator" style="color: #68d391;">NET: DIRECT</span>
-                    <span id="fps-counter">60 FPS</span>
+            </main>
+
+            <!-- Bàn Phím Ảo J2ME Mờ Xám (Ảnh 3) -->
+            <footer id="virtual-keypad-panel">
+                <div class="dpad-container" id="dpad-view">
+                    <!-- Hàng 1: L, ↖, ↑, ↗, R -->
+                    <button class="soft-key" data-key="SOFT_LEFT">L</button>
+                    <button class="soft-key key-arrow" data-key="UP_LEFT">&#8598;</button>
+                    <button class="soft-key key-arrow" data-key="UP">&#8593;</button>
+                    <button class="soft-key key-arrow" data-key="UP_RIGHT">&#8599;</button>
+                    <button class="soft-key" data-key="SOFT_RIGHT">R</button>
+
+                    <!-- Hàng 2: ←, (trống), F, (trống), → -->
+                    <button class="soft-key key-arrow" data-key="LEFT">&#8592;</button>
+                    <div></div>
+                    <button class="soft-key" data-key="FIRE" style="font-weight: 900; font-size: 18px;">F</button>
+                    <div></div>
+                    <button class="soft-key key-arrow" data-key="RIGHT">&#8594;</button>
+
+                    <!-- Hàng 3: (trống), ↙, ↓, ↘, (trống) -->
+                    <div></div>
+                    <button class="soft-key key-arrow" data-key="DOWN_LEFT">&#8601;</button>
+                    <button class="soft-key key-arrow" data-key="DOWN">&#8595;</button>
+                    <button class="soft-key key-arrow" data-key="DOWN_RIGHT">&#8600;</button>
+                    <div></div>
+                </div>
+
+                <!-- Bàn phím số đầy đủ (chuyển đổi bằng icon bàn phím) -->
+                <div class="numpad-container hidden" id="numpad-view">
+                    <button class="num-key" data-key="1">1</button>
+                    <button class="num-key" data-key="2">2</button>
+                    <button class="num-key" data-key="3">3</button>
+                    <button class="num-key" data-key="4">4</button>
+                    <button class="num-key" data-key="5">5</button>
+                    <button class="num-key" data-key="6">6</button>
+                    <button class="num-key" data-key="7">7</button>
+                    <button class="num-key" data-key="8">8</button>
+                    <button class="num-key" data-key="9">9</button>
+                    <button class="num-key" data-key="STAR">*</button>
+                    <button class="num-key" data-key="0">0</button>
+                    <button class="num-key" data-key="HASH">#</button>
+                </div>
+            </footer>
+
+            <!-- Popup Menu Trong Game (Ảnh 4) -->
+            <div id="in-game-menu-popup" class="popup-menu hidden">
+                <div class="menu-item" id="igm-exit">Thoát</div>
+                <div class="menu-item" id="igm-hide">Ẩn ứng dụng</div>
+                <div class="menu-item">
+                    <span>Treo tắt màn</span>
+                    <input type="checkbox" class="menu-checkbox" checked>
+                </div>
+                <div class="menu-item">⏰ Hẹn giờ tự tắt</div>
+                <div class="menu-item">
+                    <span>Tiết kiệm pin</span>
+                    <input type="checkbox" class="menu-checkbox">
+                </div>
+                <div class="menu-item">Lưu log</div>
+                <div class="menu-item">
+                    <span>Tự động dọn bộ nhớ</span>
+                    <input type="checkbox" class="menu-checkbox" checked>
+                </div>
+                <div class="menu-item" id="igm-add-proxy">Thêm proxy</div>
+                <div class="menu-item" id="igm-bind-proxy">Gán proxy cho tab</div>
+                <div class="menu-item">
+                    <span>Giới hạn FPS</span>
+                    <span class="menu-arrow">&#9654;</span>
+                </div>
+                <div class="menu-item">
+                    <span>Khoá xoay màn hình</span>
+                    <input type="checkbox" class="menu-checkbox">
+                </div>
+                <div class="menu-item">
+                    <span>Bàn phím ảo</span>
+                    <span class="menu-arrow">&#9654;</span>
+                </div>
+                <div class="menu-item" id="igm-change-ip">Thay IP Phiên Bản</div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             3. CÁC HỘP THOẠI DIALOG (Proxy, Đổi IP, Thêm nhiều tab)
+             ============================================================ -->
+        <!-- Dialog Thay IP Phiên Bản -->
+        <div id="dialog-ip" class="dialog-overlay hidden">
+            <div class="dialog-box">
+                <h3>Thay IP Phiên Bản (NSO)</h3>
+                <label style="font-size: 12px; color: #666;">Chọn máy chủ:</label>
+                <select id="select-nso-server">
+                    <option value="custom">Tự nhập IP/Port...</option>
+                    <option value="112.213.94.135:14444">Server 1 (Bokken)</option>
+                    <option value="112.213.94.136:14444">Server 2 (Shuriken)</option>
+                    <option value="112.213.94.137:14444">Server 3 (Tessen)</option>
+                    <option value="112.213.94.138:14444">Server 4 (Kunai)</option>
+                    <option value="112.213.94.139:14444">Server 5 (Katana)</option>
+                </select>
+                <input type="text" id="input-ip-val" placeholder="IP: 112.213.94.135">
+                <input type="number" id="input-port-val" placeholder="Port: 14444">
+                <div class="dialog-buttons">
+                    <button class="dialog-btn cancel" id="btn-cancel-ip">HỦY</button>
+                    <button class="dialog-btn confirm" id="btn-confirm-ip">LƯU</button>
                 </div>
             </div>
-        </main>
+        </div>
 
-        <!-- 4. Retro Keypad -->
-        <footer id="keypad">
-            <div class="keypad-row soft-keys">
-                <button class="key-btn" data-key="SOFT_LEFT" id="choice">LSK</button>
-                <button class="key-btn" data-key="UP">&#9650;</button>
-                <button class="key-btn" data-key="SOFT_RIGHT" id="back">RSK</button>
-            </div>
-            <div class="keypad-row dpad-middle">
-                <button class="key-btn" data-key="LEFT">&#9664;</button>
-                <button class="key-btn dpad-center" data-key="FIRE">OK</button>
-                <button class="key-btn" data-key="RIGHT">&#9654;</button>
-            </div>
-            <div class="keypad-row">
-                <button class="key-btn" data-key="CALL">&#128222;</button>
-                <button class="key-btn" data-key="DOWN">&#9660;</button>
-                <button class="key-btn" data-key="END">&#128225;</button>
-            </div>
-            <div class="keypad-grid numpad">
-                <button class="key-btn num" data-key="1">1</button>
-                <button class="key-btn num" data-key="2">2</button>
-                <button class="key-btn num" data-key="3">3</button>
-                <button class="key-btn num" data-key="4">4</button>
-                <button class="key-btn num" data-key="5">5</button>
-                <button class="key-btn num" data-key="6">6</button>
-                <button class="key-btn num" data-key="7">7</button>
-                <button class="key-btn num" data-key="8">8</button>
-                <button class="key-btn num" data-key="9">9</button>
-                <button class="key-btn num" data-key="STAR">*</button>
-                <button class="key-btn num" data-key="0">0</button>
-                <button class="key-btn num" data-key="HASH">#</button>
-            </div>
-        </footer>
-
-        <!-- 5. Settings / Decade Modal -->
-        <div id="settings-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>KamenRider Decade - Tuỳ Chọn</h2>
-                    <button id="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <!-- Nạp Game -->
-                    <div class="settings-group">
-                        <h3>Nạp Game Java (.JAR)</h3>
-                        <p style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Chọn file .jar từ ứng dụng Tệp của iPhone.</p>
-                        <input type="file" id="jar-file-input" accept=".jar,application/java-archive,*/*">
-                        <button id="btn-load-demo" class="btn-action" style="background: #253043; border: 1px solid #3d4d68;">Chạy Thử Demo</button>
-                    </div>
-
-                    <!-- Đổi IP NSO -->
-                    <div class="settings-group">
-                        <h3>Thay IP Phiên Bản (NSO Server)</h3>
-                        <select id="server-select">
-                            <option value="custom">Tự nhập IP/Port...</option>
-                            <option value="112.213.94.135:14444">Server 1 (Bokken)</option>
-                            <option value="112.213.94.136:14444">Server 2 (Shuriken)</option>
-                            <option value="112.213.94.137:14444">Server 3 (Tessen)</option>
-                            <option value="112.213.94.138:14444">Server 4 (Kunai)</option>
-                            <option value="112.213.94.139:14444">Server 5 (Katana)</option>
-                        </select>
-                        <div class="ip-row">
-                            <input type="text" id="custom-ip" placeholder="IP: 112.213.94.135">
-                            <input type="number" id="custom-port" placeholder="Port: 14444">
-                        </div>
-                        <button id="btn-save-ip" class="btn-action">Lưu IP cho Tab này</button>
-                    </div>
-
-                    <!-- Quản Lý Proxy -->
-                    <div class="settings-group">
-                        <h3>Quản Lý Proxy Theo Slot</h3>
-                        <select id="proxy-type">
-                            <option value="DIRECT">Không dùng proxy (Direct)</option>
-                            <option value="SOCKS5">SOCKS5 Proxy</option>
-                            <option value="HTTP">HTTP CONNECT Proxy</option>
-                        </select>
-                        <div class="ip-row">
-                            <input type="text" id="proxy-host" placeholder="Host: 103.x.x.x">
-                            <input type="number" id="proxy-port" placeholder="Port: 1080">
-                        </div>
-                        <button id="btn-save-proxy" class="btn-action">Lưu Proxy cho Tab này</button>
-                    </div>
+        <!-- Dialog Gán Proxy Cho Tab -->
+        <div id="dialog-proxy" class="dialog-overlay hidden">
+            <div class="dialog-box">
+                <h3>Gán Proxy Cho Tab Hiện Tại</h3>
+                <select id="select-proxy-type">
+                    <option value="DIRECT">Không dùng proxy (Direct)</option>
+                    <option value="SOCKS5">SOCKS5 Proxy</option>
+                    <option value="HTTP">HTTP CONNECT Proxy</option>
+                </select>
+                <input type="text" id="input-proxy-host" placeholder="Host: 103.x.x.x">
+                <input type="number" id="input-proxy-port" placeholder="Port: 1080">
+                <div class="dialog-buttons">
+                    <button class="dialog-btn cancel" id="btn-cancel-proxy">HỦY</button>
+                    <button class="dialog-btn confirm" id="btn-confirm-proxy">LƯU</button>
                 </div>
             </div>
         </div>
 
-        <!-- Add Many Tabs Dialog -->
-        <div id="add-many-modal" class="modal hidden">
-            <div class="modal-content" style="max-width: 300px;">
-                <div class="modal-header">
-                    <h2>Mở Hàng Loạt Tab</h2>
-                    <button id="add-many-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <label style="font-size: 13px;">Nhập số lượng tab muốn thêm:</label>
-                    <input type="number" id="add-many-count" value="3" min="1" max="20" style="padding: 8px; font-size: 15px; text-align: center; font-weight: bold; width: 100%; margin: 8px 0;">
-                    <button id="btn-confirm-add-many" class="btn-action">Tạo Tab</button>
+        <!-- Dialog Thêm Nhiều Tab (++) -->
+        <div id="dialog-many-tabs" class="dialog-overlay hidden">
+            <div class="dialog-box" style="max-width: 280px;">
+                <h3>Mở Nhiều Tab</h3>
+                <label style="font-size: 13px;">Nhập số lượng tab muốn tạo:</label>
+                <input type="number" id="input-many-count" value="3" min="1" max="20" style="text-align: center; font-size: 16px; font-weight: bold; margin: 8px 0;">
+                <div class="dialog-buttons">
+                    <button class="dialog-btn cancel" id="btn-cancel-many">HỦY</button>
+                    <button class="dialog-btn confirm" id="btn-confirm-many">TẠO</button>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <!-- Application Controller -->
+    <!-- Application Script -->
     <script src="app.js"></script>
 </body>
 </html>
