@@ -15,16 +15,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install xcodegen
-        run: brew install xcodegen
-
-      - name: Generate Xcode Project
-        run: xcodegen generate
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
 
       - name: Build Application with Xcode
         run: |
-          xcodebuild -project J2MEDecade.xcodeproj \
-            -scheme J2MEDecade \
+          xcodebuild -project J2MEEmulator.xcodeproj \
+            -scheme J2MEEmulator \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -36,18 +33,14 @@ jobs:
       - name: Package App into IPA
         run: |
           mkdir -p Payload
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "J2MEDecade.app" -type d | head -n 1)
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "J2MEEmulator.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            APP_PATH=$(find . -name "J2MEDecade.app" -type d | head -n 1)
+            APP_PATH=$(find . -name "J2MEEmulator.app" -type d | head -n 1)
           fi
           echo "Found App at: $APP_PATH"
           cp -R "$APP_PATH" Payload/
-          # Copy Web files to both root and Web/ subdirectory
-          mkdir -p Payload/J2MEDecade.app/Web
-          cp -R J2MEDecade/Web/* Payload/J2MEDecade.app/Web/
-          cp -R J2MEDecade/Web/* Payload/J2MEDecade.app/
           echo "=== Content of App Bundle ==="
-          ls -la Payload/J2MEDecade.app/
+          ls -la Payload/J2MEEmulator.app/
           zip -r J2ME-Decade.ipa Payload/
 
       - name: Upload IPA Artifact
@@ -61,13 +54,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main')
         with:
-          tag_name: v1.0-decade
-          name: "J2ME Decade iOS v1.0"
+          tag_name: v2.0-native
+          name: "J2ME Decade Native iOS v2.0"
           body: |
-            ## J2ME Decade iOS - KamenRider Decade Multi-Tab Edition
-            - **Đã loại bỏ hoàn toàn hệ thống âm thanh** (tiết kiệm CPU, không gây lag giật âm thanh).
-            - **Tích hợp nhân máy ảo Java J2ME** (chạy game .jar trực tiếp trên iPhone).
-            - **Cầu nối mạng Socket TCP Native** qua Swift Network.framework.
-            - **Đa Tab (Multi-Tab)**, đổi IP Server NSO (Bokken, Shuriken, Tessen, Kunai, Katana) & Proxy SOCKS5/HTTP per slot.
-            - **Cài đặt**: Kéo file `J2ME-Decade.ipa` vào Sideloadly hoặc 3uTools để cài lên iPhone.
+            ## J2ME Decade iOS v2.0 - Native C/Swift Engine
+            - **Nhân máy ảo Java thuần Native (miniJVM + J2ME-Loader C/Swift port)**: chạy trực tiếp bytecode trên CPU iOS, 60 FPS mượt mà.
+            - **100% Hoàn toàn Miễn phí & Độc lập**: Không có bất kỳ license, không giới hạn trial 2 tiếng, không thu phí tháng.
+            - **Đã loại bỏ hoàn toàn hệ thống âm thanh**: 0% CPU âm thanh, máy siêu mát, tiết kiệm pin.
+            - **Hỗ trợ kết nối mạng Socket TCP Native**: chơi online Ninja School mượt mà.
+            - **Quản lý danh sách game vĩnh viễn**: Tự nhận diện game tích hợp sẵn, nút `+` nạp thêm JAR từ Files app và lưu vĩnh viễn trong máy.
+            - **Cài đặt**: Kéo file `J2ME-Decade.ipa` vào Sideloadly để cài lên iPhone.
           files: J2ME-Decade.ipa
