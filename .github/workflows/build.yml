@@ -16,10 +16,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app || true
 
       - name: Build Application with Xcode
         run: |
+          set -o pipefail
           xcodebuild -project J2MEEmulator.xcodeproj \
             -scheme J2MEEmulator \
             -configuration Release \
@@ -28,7 +29,12 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            clean build
+            CODE_SIGN_STYLE=Manual \
+            clean build 2>&1 | tee build_raw.log || {
+              echo "=== BUILD FAILED - RECENT LOGS ==="
+              tail -n 120 build_raw.log
+              exit 1
+            }
 
       - name: Package App into IPA
         run: |
