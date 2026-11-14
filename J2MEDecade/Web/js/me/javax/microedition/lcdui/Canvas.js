@@ -45,6 +45,7 @@ js2me.createClass({
 		this.element.height = js2me.config.height;
 		//this.element.setAttribute('moz-opaque', '');
 		var canvas = this;
+		js2me.currentCanvas = canvas;
 		this.element.addEventListener('DOMNodeInserted', function () {
 			js2me.addEventListener('keypress', canvas.keyPressListener);
 			js2me.addEventListener('keyreleased', canvas.keyReleasedListener);

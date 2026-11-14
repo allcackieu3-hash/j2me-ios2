@@ -71,16 +71,23 @@ js2me.createClass({
 			displayable.display = this;
 		}
 		this.timeout = setTimeout(function () {
-			document.getElementById('title').innerHTML = '';
-			screen.innerHTML = '';
+			var titleEl = document.getElementById('title');
+			if (titleEl) titleEl.innerHTML = '';
+			if (screen) screen.innerHTML = '';
 			if (displayable != null) {
-				if (displayable.title) {
-					document.getElementById('title').innerHTML = displayable.title.text;
+				if (displayable.title && titleEl) {
+					titleEl.innerHTML = displayable.title.text;
 				}
-				screen.appendChild(displayable.element);
+				if (screen && displayable.element) {
+					screen.appendChild(displayable.element);
+				}
 				displayable.active = true;
-				displayable.refreshCommands();
-				js2me.setFullscreen(displayable.fullscreen);
+				if (displayable.refreshCommands) {
+					displayable.refreshCommands();
+				}
+				if (js2me.setFullscreen) {
+					js2me.setFullscreen(displayable.fullscreen);
+				}
 			}
 		}, 1);
 	},

@@ -5,7 +5,8 @@ var js2me = {
 	profile: false,
 	storageName: '',
 	libraryPath: 'js/me',
-	constantPools: [], //only for memory profiling
+	engine: 'js/program_zazu.js',
+	constantPools: [],
 	config: {
 		app: true,
 		engine: 'zazu',
@@ -13,7 +14,7 @@ var js2me = {
 		workers: false,
 		midlet: 1,
 		width: 240,
-		height: 266,
+		height: 320,
 		fullHeight: 320
 	}
 };

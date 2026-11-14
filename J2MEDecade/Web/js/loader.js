@@ -1,47 +1,43 @@
 /**
- * Loads classes and resources from a given JAR file. This function purges state of JVM.
- * @param {string} filename Path to JAR file.
- * @param {function} callback Function to execute when loading is over.
+ * Loads classes and resources from a given JAR file.
  */
 js2me.loadJAR = function (file, callback) {
 	function loadReader(reader) {
 		zip.useWebWorkers = false;
 		zip.workerScriptsPath = 'js/zip/';
-		zip.createReader(reader, function(zipReader) {
+		zip.createReader(reader, function (zipReader) {
 			zipReader.getEntries(function (entries) {
-				js2me.addResources(entries)
+				js2me.addResources(entries);
 				js2me.loadResource('META-INF/MANIFEST.MF', function (data) {
-					var content = js2me.UTF8ToString(data);
+					var content = data ? js2me.UTF8ToString(data) : '';
 					js2me.manifest = js2me.parseManifest(content);
-					js2me.storageName = js2me.manifest['midlet-vendor'] + '/' +js2me.manifest['midlet-name'] + '//' + file.size + '/';
+					var vendor = js2me.manifest['midlet-vendor'] || 'Decade';
+					var name = js2me.manifest['midlet-name'] || 'Game';
+					js2me.storageName = vendor + '/' + name + '//' + file.size + '/';
 					callback();
 				});
 			});
 		}, function (message) {
-			js2me.showError(message);
+			console.error('ZIP Reader Error:', message);
+			alert('Lỗi đọc file JAR: ' + message);
 		});
 	}
-	
+
 	js2me.setupJVM(function () {
 		loadReader(new zip.BlobReader(file));
 	});
-}
+};
+
 js2me.loadScript = function (filename, successCallback, errorCallback) {
 	var element = document.createElement('script');
 	element.src = filename;
 	element.onload = function () {
-		document.head.removeChild(element);
-		//delete element.onload;
-		//delete element.onerror;
-		//element = undefined;
-		successCallback();
+		if (element.parentNode) element.parentNode.removeChild(element);
+		if (successCallback) successCallback();
 	};
 	element.onerror = function () {
-		document.head.removeChild(element);
-		//delete element.onload;
-		//delete element.onerror;
-		//element = undefined;
-		errorCallback();
+		if (element.parentNode) element.parentNode.removeChild(element);
+		if (errorCallback) errorCallback();
 	};
 	document.head.appendChild(element);
 };

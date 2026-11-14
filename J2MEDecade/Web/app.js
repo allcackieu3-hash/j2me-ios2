@@ -1,12 +1,11 @@
 /**
  * J2ME Decade iOS - Client Controller & Multi-Tab Manager
- * KamenRider Decade J2ME Engine (Audio Removed per user requirement)
+ * KamenRider Decade Theme (Audio Removed per user requirement)
  */
 
 (function () {
     'use strict';
 
-    // Key mapping to standard J2ME Canvas KeyCodes
     const KEY_MAP = {
         'SOFT_LEFT': -6,
         'SOFT_RIGHT': -7,
@@ -23,7 +22,6 @@
         'STAR': 42, '0': 48, 'HASH': 35
     };
 
-    // Slot Manager (Multi-Tab / Multi-Session)
     const SlotManager = {
         slots: {},
         activeSlotId: 1,
@@ -70,16 +68,20 @@
             this.switchSlot(id);
         },
 
+        addManySlots(count) {
+            for (let i = 0; i < count; i++) {
+                this.addSlot();
+            }
+        },
+
         switchSlot(slotId) {
             if (!this.slots[slotId]) return;
             this.activeSlotId = slotId;
 
-            // Update UI tabs
             document.querySelectorAll('.tab-item').forEach(tab => {
                 tab.classList.toggle('active', parseInt(tab.dataset.slot) === slotId);
             });
 
-            // Update Decade Engine VM context
             if (window.js2me) {
                 window.js2me.currentVM = slotId;
             }
@@ -97,7 +99,6 @@
             const tabEl = document.querySelector(`.tab-item[data-slot="${slotId}"]`);
             if (tabEl) tabEl.remove();
 
-            // Close associated sockets
             if (window.DecadeSocket) {
                 window.DecadeSocket.closeSlotSockets(slotId);
             }
@@ -115,9 +116,9 @@
             const screen = document.getElementById('screen');
             screen.innerHTML = `
                 <div style="color: #63b3ed; text-align: center; padding: 20px;">
-                    <div style="font-size: 24px; margin-bottom: 8px;">&#9881;</div>
-                    <div style="font-size: 14px; font-weight: bold;">Đang nạp file JAR...</div>
-                    <div style="font-size: 11px; color: #a0aec0; margin-top: 4px;">${file.name}</div>
+                    <div style="font-size: 28px; margin-bottom: 8px;">&#9881;</div>
+                    <div style="font-size: 14px; font-weight: bold; color: #fff;">Đang nạp file JAR...</div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">${file.name}</div>
                 </div>
             `;
 
@@ -137,9 +138,9 @@
             if (screen && !screen.hasChildNodes()) {
                 screen.innerHTML = `
                     <div style="color: #94a3b8; text-align: center; padding: 20px; font-size: 13px;">
-                        <div style="font-size: 32px; color: #ff2a5f; margin-bottom: 8px;">&#127918;</div>
-                        <div style="font-weight: bold; color: #fff; margin-bottom: 4px;">DECADE J2ME ENGINE</div>
-                        <div>Nhấn <b>&#9776; Menu</b> &rarr; <b>Nạp Game (.JAR)</b><br>để bắt đầu chơi.</div>
+                        <div style="font-size: 32px; color: #e4007f; margin-bottom: 8px;">&#127918;</div>
+                        <div style="font-weight: bold; color: #fff; margin-bottom: 4px;">KAMENRIDER DECADE</div>
+                        <div>Bấm <b>&#9776; Menu</b> &rarr; <b>Nạp Game (.JAR)</b><br>để bắt đầu chơi.</div>
                     </div>
                 `;
             }
@@ -163,7 +164,7 @@
         },
 
         bindEvents() {
-            // Tab clicks
+            // Tab click
             document.getElementById('tabs-scroll').addEventListener('click', (e) => {
                 const closeBtn = e.target.closest('.tab-close');
                 if (closeBtn) {
@@ -177,9 +178,23 @@
                 }
             });
 
-            // Add Tab
-            document.getElementById('btn-add-tab').addEventListener('click', () => {
+            // Add 1 Tab
+            document.getElementById('btn-add-one').addEventListener('click', () => {
                 this.addSlot();
+            });
+
+            // Add Many Tabs (++)
+            const addManyModal = document.getElementById('add-many-modal');
+            document.getElementById('btn-add-many').addEventListener('click', () => {
+                addManyModal.classList.remove('hidden');
+            });
+            document.getElementById('add-many-close').addEventListener('click', () => {
+                addManyModal.classList.add('hidden');
+            });
+            document.getElementById('btn-confirm-add-many').addEventListener('click', () => {
+                const count = parseInt(document.getElementById('add-many-count').value) || 3;
+                this.addManySlots(count);
+                addManyModal.classList.add('hidden');
             });
 
             // Settings Modal
@@ -200,7 +215,7 @@
                 }
             });
 
-            // Demo Mode (Interactive Canvas Test)
+            // Demo Mode
             document.getElementById('btn-load-demo').addEventListener('click', () => {
                 this.runInteractiveDemo();
                 modal.classList.add('hidden');
@@ -239,8 +254,8 @@
                 modal.classList.add('hidden');
             });
 
-            // Keypad Event Handlers (Virtual Buttons)
             this.bindKeypad();
+            this.bindTouchScreen();
         },
 
         bindKeypad() {
@@ -255,7 +270,7 @@
                 if (keyCode !== undefined && window.js2me) {
                     window.js2me.sendKeyPressEvent(keyCode);
                 }
-                if (navigator.vibrate) navigator.vibrate(12);
+                if (navigator.vibrate) navigator.vibrate(10);
             };
 
             const handleRelease = (e) => {
@@ -274,6 +289,23 @@
             keypad.addEventListener('touchend', handleRelease, { passive: false });
             keypad.addEventListener('mousedown', handlePress);
             keypad.addEventListener('mouseup', handleRelease);
+        },
+
+        bindTouchScreen() {
+            // Support direct touch on game screen (Ninja School Online Touch)
+            const screen = document.getElementById('screen');
+            screen.addEventListener('touchstart', (e) => {
+                const canvas = screen.querySelector('canvas');
+                if (!canvas || !window.js2me) return;
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = Math.floor((touch.clientX - rect.left) * (canvas.width / rect.width));
+                const y = Math.floor((touch.clientY - rect.top) * (canvas.height / rect.height));
+
+                if (window.js2me.currentCanvas && window.js2me.currentCanvas.$pointerPressed$II$V) {
+                    window.js2me.currentCanvas.$pointerPressed$II$V(x, y);
+                }
+            }, { passive: true });
         },
 
         runInteractiveDemo() {
@@ -303,7 +335,6 @@
                 ctx.fillStyle = '#0f172a';
                 ctx.fillRect(0, 0, 240, 320);
 
-                // Grid background
                 ctx.strokeStyle = '#1e293b';
                 ctx.lineWidth = 1;
                 for (let x = 0; x < 240; x += 20) {
@@ -313,20 +344,17 @@
                     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(240, y); ctx.stroke();
                 }
 
-                // Ninja Character Box
-                ctx.fillStyle = '#ff2a5f';
+                ctx.fillStyle = '#e4007f';
                 ctx.fillRect(playerX, playerY, 20, 20);
                 ctx.strokeStyle = '#fff';
                 ctx.strokeRect(playerX, playerY, 20, 20);
 
-                // Text
                 ctx.fillStyle = '#f8fafc';
                 ctx.font = 'bold 12px monospace';
-                ctx.fillText('DECADE ENGINE READY', 45, 40);
-                ctx.fillStyle = '#38bdf8';
+                ctx.fillText('KAMENRIDER DECADE', 45, 40);
+                ctx.fillStyle = '#00d2ff';
                 ctx.font = '10px monospace';
-                ctx.fillText('Am thanh: DA LOAI BO', 45, 60);
-                ctx.fillText('Bam D-Pad de di chuyen', 45, 80);
+                ctx.fillText('Ninja School Online Ready', 40, 60);
 
                 requestAnimationFrame(render);
             }
@@ -334,7 +362,7 @@
         }
     };
 
-    // Native Socket Bridge Implementation
+    // Native Socket Bridge
     window.DecadeSocket = {
         callbacks: {},
         socketSlotMap: {},
@@ -350,7 +378,7 @@
             const targetHost = serverConfig.override ? serverConfig.host : host;
             const targetPort = serverConfig.override ? serverConfig.port : port;
 
-            console.log(`[DecadeSocket] Connecting socket #${socketId} to ${targetHost}:${targetPort} via ${proxyConfig.type}`);
+            console.log(`[DecadeSocket] Connecting #${socketId} to ${targetHost}:${targetPort}`);
 
             if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.decadeNative) {
                 window.webkit.messageHandlers.decadeNative.postMessage({
@@ -362,8 +390,6 @@
                     proxyPort: proxyConfig.port || 0,
                     proxyType: proxyConfig.type || 'DIRECT'
                 });
-            } else {
-                console.warn('[DecadeSocket] Native bridge not found (running in pure browser)');
             }
         },
 
@@ -402,7 +428,6 @@
         }
     };
 
-    // Inbound callbacks from Swift Network.framework
     window.DecadeNative = {
         onSocketOpen(socketId) {
             console.log(`[DecadeNative] Socket #${socketId} open`);
@@ -420,7 +445,6 @@
         },
 
         onSocketClose(socketId) {
-            console.log(`[DecadeNative] Socket #${socketId} closed`);
             delete window.DecadeSocket.callbacks[socketId];
         },
 
@@ -429,7 +453,6 @@
         }
     };
 
-    // Forward keypad to demo if demo is active
     const origSendKey = window.js2me ? window.js2me.sendKeyPressEvent : null;
     if (window.js2me) {
         window.js2me.sendKeyPressEvent = function (keyCode) {
@@ -438,7 +461,6 @@
         };
     }
 
-    // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', () => {
         SlotManager.init();
     });

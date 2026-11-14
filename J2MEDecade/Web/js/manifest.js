@@ -1,20 +1,23 @@
 /**
- * Creates manifest object from given content.
- * @param {string} content Manifest file's content.
- * @return {object} Manifest object.
+ * Parses manifest compliant with Java JAR specification.
  */
 js2me.parseManifest = function (content) {
 	var manifest = {};
-	var lines = content.split('\n');
-	var lastSection;
-	for (var i in lines) {
-		var parts = lines[i].split(':');
-		if (parts.length > 1) {
-			lastSection = parts[0].toLowerCase();
-			manifest[lastSection] = parts[1].trim();
+	if (!content) return manifest;
+	var lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+	var lastSection = '';
+	for (var i = 0; i < lines.length; i++) {
+		var line = lines[i];
+		if (!line) continue;
+		if (line.charAt(0) === ' ' && lastSection) {
+			manifest[lastSection] += line.trim();
 		} else {
-			manifest[lastSection] += parts[0].trim();
+			var colonIdx = line.indexOf(':');
+			if (colonIdx !== -1) {
+				lastSection = line.substring(0, colonIdx).trim().toLowerCase();
+				manifest[lastSection] = line.substring(colonIdx + 1).trim();
+			}
 		}
 	}
 	return manifest;
-}
+};

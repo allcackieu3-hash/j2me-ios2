@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>J2ME Decade iOS</title>
+    <title>KamenRider Decade</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Engine Core (J2ME / CLDC Bytecode Engine - No Audio Overhead) -->
+    <!-- J2ME Engine (No Audio Overhead) -->
     <script src="js/zip/zip.js"></script>
     <script src="js/zip/inflate.js"></script>
     <script src="js/zip/zip-ext.js"></script>
@@ -13,7 +13,7 @@
     <script src="js/bufferStream.js"></script>
     <script src="js/convert.js"></script>
     <script src="js/classes.js"></script>
-    <script src="js/emulator.js"></script>
+    <script src="js/program_zazu.js"></script>
     <script src="js/execute.js"></script>
     <script src="js/events.js"></script>
     <script src="js/manifest.js"></script>
@@ -27,19 +27,30 @@
 </head>
 <body>
     <div id="app-container">
-        <!-- Top Decade Multi-Tab Bar -->
-        <header id="tab-bar">
+        <!-- 1. Android Decade Style Toolbar -->
+        <header id="toolbar">
+            <div class="toolbar-title">
+                <span>KamenRider</span>
+                <span class="decade-badge">DECADE</span>
+            </div>
+            <div class="toolbar-actions">
+                <button id="btn-add-one" class="tool-btn" title="Thêm 1 Tab">+</button>
+                <button id="btn-add-many" class="tool-btn" title="Thêm nhiều Tab">++</button>
+                <button id="btn-menu" class="tool-btn" title="Cài đặt Decade">&#9776;</button>
+            </div>
+        </header>
+
+        <!-- 2. Decade Tab Bar -->
+        <nav id="tab-bar">
             <div id="tabs-scroll">
                 <div class="tab-item active" data-slot="1">
                     <span class="tab-title">Tab 1</span>
                     <button class="tab-close" data-slot="1">&times;</button>
                 </div>
             </div>
-            <button id="btn-add-tab" title="Thêm Tab mới">+</button>
-            <button id="btn-menu" title="Cài đặt Decade">&#9776;</button>
-        </header>
+        </nav>
 
-        <!-- Main Game Screen Area -->
+        <!-- 3. Game Screen Area -->
         <main id="game-container">
             <div id="screen-wrapper">
                 <div id="screen"></div>
@@ -51,7 +62,7 @@
             </div>
         </main>
 
-        <!-- Retro Virtual Keypad (Bàn phím ảo J2ME) -->
+        <!-- 4. Retro Keypad -->
         <footer id="keypad">
             <div class="keypad-row soft-keys">
                 <button class="key-btn" data-key="SOFT_LEFT" id="choice">LSK</button>
@@ -84,26 +95,25 @@
             </div>
         </footer>
 
-        <!-- Settings / Decade Modal -->
+        <!-- 5. Settings / Decade Modal -->
         <div id="settings-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>KamenRider Decade - Cài Đặt</h2>
+                    <h2>KamenRider Decade - Tuỳ Chọn</h2>
                     <button id="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <!-- Section: Load Game -->
+                    <!-- Nạp Game -->
                     <div class="settings-group">
-                        <h3>Nạp Game (.JAR)</h3>
-                        <p style="font-size: 12px; color: #a0aec0; margin-bottom: 8px;">Chọn file .jar từ ứng dụng Tệp (Files) của iPhone hoặc tải từ web.</p>
+                        <h3>Nạp Game Java (.JAR)</h3>
+                        <p style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">Chọn file .jar từ ứng dụng Tệp của iPhone.</p>
                         <input type="file" id="jar-file-input" accept=".jar,application/java-archive,*/*">
-                        <button id="btn-load-demo" class="btn-action">Chạy Demo Mẫu</button>
+                        <button id="btn-load-demo" class="btn-action" style="background: #253043; border: 1px solid #3d4d68;">Chạy Thử Demo</button>
                     </div>
 
-                    <!-- Section: Thay IP Server -->
+                    <!-- Đổi IP NSO -->
                     <div class="settings-group">
                         <h3>Thay IP Phiên Bản (NSO Server)</h3>
-                        <label for="server-select">Chọn máy chủ Ninja School:</label>
                         <select id="server-select">
                             <option value="custom">Tự nhập IP/Port...</option>
                             <option value="112.213.94.135:14444">Server 1 (Bokken)</option>
@@ -113,37 +123,41 @@
                             <option value="112.213.94.139:14444">Server 5 (Katana)</option>
                         </select>
                         <div class="ip-row">
-                            <input type="text" id="custom-ip" placeholder="IP: vd 112.213.94.135">
-                            <input type="number" id="custom-port" placeholder="Port: vd 14444">
+                            <input type="text" id="custom-ip" placeholder="IP: 112.213.94.135">
+                            <input type="number" id="custom-port" placeholder="Port: 14444">
                         </div>
-                        <button id="btn-save-ip" class="btn-action">Lưu IP cho Tab hiện tại</button>
+                        <button id="btn-save-ip" class="btn-action">Lưu IP cho Tab này</button>
                     </div>
 
-                    <!-- Section: Proxy Cấu hình từng Slot -->
+                    <!-- Quản Lý Proxy -->
                     <div class="settings-group">
-                        <h3>Quản Lý Proxy Theo Tab (Per-Slot Proxy)</h3>
-                        <label for="proxy-type">Loại Proxy:</label>
+                        <h3>Quản Lý Proxy Theo Slot</h3>
                         <select id="proxy-type">
                             <option value="DIRECT">Không dùng proxy (Direct)</option>
                             <option value="SOCKS5">SOCKS5 Proxy</option>
                             <option value="HTTP">HTTP CONNECT Proxy</option>
                         </select>
                         <div class="ip-row">
-                            <input type="text" id="proxy-host" placeholder="Proxy Host (vd: 103.1.2.3)">
-                            <input type="number" id="proxy-port" placeholder="Proxy Port (vd: 1080)">
+                            <input type="text" id="proxy-host" placeholder="Host: 103.x.x.x">
+                            <input type="number" id="proxy-port" placeholder="Port: 1080">
                         </div>
-                        <button id="btn-save-proxy" class="btn-action">Áp dụng Proxy cho Tab này</button>
+                        <button id="btn-save-proxy" class="btn-action">Lưu Proxy cho Tab này</button>
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Section: Hệ thống & Âm thanh -->
-                    <div class="settings-group">
-                        <h3>Tối Ưu Hóa & Thông Tin</h3>
-                        <p style="font-size: 13px; color: #cbd5e0;">
-                            &#10003; Đã loại bỏ hoàn toàn module âm thanh (0% CPU âm thanh).<br>
-                            &#10003; Hỗ trợ chạy đa tab độc lập kèm RMS riêng từng tab.<br>
-                            &#10003; Cầu nối Socket TCP Native Network.framework qua Swift.
-                        </p>
-                    </div>
+        <!-- Add Many Tabs Dialog -->
+        <div id="add-many-modal" class="modal hidden">
+            <div class="modal-content" style="max-width: 300px;">
+                <div class="modal-header">
+                    <h2>Mở Hàng Loạt Tab</h2>
+                    <button id="add-many-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <label style="font-size: 13px;">Nhập số lượng tab muốn thêm:</label>
+                    <input type="number" id="add-many-count" value="3" min="1" max="20" style="padding: 8px; font-size: 15px; text-align: center; font-weight: bold; width: 100%; margin: 8px 0;">
+                    <button id="btn-confirm-add-many" class="btn-action">Tạo Tab</button>
                 </div>
             </div>
         </div>
