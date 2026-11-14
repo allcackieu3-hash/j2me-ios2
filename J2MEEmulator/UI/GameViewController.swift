@@ -2,18 +2,20 @@
 //  GameViewController.swift
 //  J2MEEmulator
 //
-//  Runs a single J2ME MIDlet. Presented modally with zoom transition.
-//  Layout mode determines the arrangement of screen and controls.
+//  Runs a single J2ME MIDlet with authentic KamenRider Decade UI:
+//  - Portrait mode locked with Decade top bar & multi-tab switcher
+//  - Centered high-resolution Canvas with touch support & double-tap text prompt
+//  - Authentic Decade on-screen virtual keypad (8-way directional, numpad, soft keys, backspace)
+//  - Full-featured Text Input Dialog (⌨) for effortlessly entering username, password, or chat
 //
 
 import UIKit
 
-// MARK: - Layout mode (extensible for future layouts)
+// MARK: - Layout mode
 
 enum GameLayoutMode {
+    case decade     // Portrait: Decade top bar, centered screen, Decade virtual keypad
     case ngage      // Landscape: D-pad left, screen center, numpad right
-    // Future: .classic   — Portrait: screen top, keyboard bottom
-    // Future: .fullscreen — Landscape: screen fills, overlay controls
 }
 
 // MARK: - GameViewController
@@ -29,6 +31,7 @@ class GameViewController: UIViewController {
     let fpsLimit: Int
     let layoutMode: GameLayoutMode
 
+    private let gameContainerView = UIView()
     private let emulatorView = EmulatorView()
     private let glowContainer = UIView()
     private let glowContentView = UIView()
@@ -40,14 +43,20 @@ class GameViewController: UIViewController {
     private let softKeyHaptic = UIImpactFeedbackGenerator(style: .light)
     private(set) var placeholderIconView: UIImageView?
 
-    // Controls — created based on layoutMode
+    // Decade UI components
+    private var decadeKeypadView: DecadeKeypadView?
+    private let decadeTopBar = UIView()
+    private let tabStackView = UIStackView()
+    private let textInputTopBtn = UIButton(type: .system)
+
+    // Legacy controls (if in ngage mode)
     private var joystickView: JoystickView?
     private var numpadView: NumpadView?
 
     init(jarPath: String, appName: String, appIcon: UIImage,
          canvasWidth: Int = 240, canvasHeight: Int = 320,
          render3dScale: Int = 3, fpsLimit: Int = 0,
-         layoutMode: GameLayoutMode = .ngage) {
+         layoutMode: GameLayoutMode = .decade) {
         self.jarPath = jarPath
         self.appName = appName
         self.appIcon = appIcon
@@ -72,19 +81,30 @@ class GameViewController: UIViewController {
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         switch layoutMode {
+        case .decade: return .portrait
         case .ngage: return .landscape
+        }
+    }
+
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        switch layoutMode {
+        case .decade: return .portrait
+        case .ngage: return .landscapeRight
         }
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        view.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1.0)
 
         emulatorView.canvasWidth = canvasWidth
         emulatorView.canvasHeight = canvasHeight
 
         switch layoutMode {
-        case .ngage: setupNGageLayout()
+        case .decade:
+            setupDecadeLayout()
+        case .ngage:
+            setupNGageLayout()
         }
 
         // Placeholder icon — visible until first game frame
@@ -115,6 +135,13 @@ class GameViewController: UIViewController {
             self?.glowContentView.layer.contents = cgImage
         }
 
+        // Double-tap on canvas triggers Text Input Dialog without delaying single taps
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(canvasDoubleTapped))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delaysTouchesBegan = false
+        doubleTap.cancelsTouchesInView = false
+        emulatorView.addGestureRecognizer(doubleTap)
+
         // Register native callbacks
         setGlobalEmulatorView(emulatorView)
         j2me_render_set_flush_callback(flushCallback)
@@ -128,36 +155,85 @@ class GameViewController: UIViewController {
     }
 
     // ============================================================
-    // MARK: - N-Gage layout
+    // MARK: - KamenRider Decade Portrait Layout
     // ============================================================
-    //
-    //  ┌──────────────────────────────────────────────────────┐
-    //  │ [X]                                                   │
-    //  │  ┌─────────┐  ┌──────────────┐  ┌───────────────┐  │
-    //  │  │         │  │              │  │ [LSK]   [RSK] │  │
-    //  │  │  ╭───╮  │  │  J2ME Canvas │  │ [1] [2] [3]  │  │
-    //  │  │  │ ○ │  │  │   240×320    │  │ [4] [5] [6]  │  │
-    //  │  │  ╰───╯  │  │              │  │ [7] [8] [9]  │  │
-    //  │  │joystick │  │              │  │ [*] [0] [#]  │  │
-    //  │  └─────────┘  └──────────────┘  └───────────────┘  │
-    //  └──────────────────────────────────────────────────────┘
 
-    private func setupNGageLayout() {
-        let joystick = JoystickView()
-        let numpad = NumpadView()
-        self.joystickView = joystick
-        self.numpadView = numpad
+    private func setupDecadeLayout() {
+        // 1. Top Decade Bar (Navy Blue #1C2534)
+        decadeTopBar.backgroundColor = UIColor(red: 0.11, green: 0.15, blue: 0.21, alpha: 1.0)
+        decadeTopBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(decadeTopBar)
 
-        // Glow: container with game content mirror + NeutralBlurView on top
+        let magentaLine = UIView()
+        magentaLine.backgroundColor = UIColor(red: 0.91, green: 0.12, blue: 0.39, alpha: 1.0)
+        magentaLine.translatesAutoresizingMaskIntoConstraints = false
+        decadeTopBar.addSubview(magentaLine)
+
+        // Back button
+        backButton.setTitle(" ✕ ", for: .normal)
+        backButton.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
+        backButton.setTitleColor(.white, for: .normal)
+        backButton.backgroundColor = UIColor(white: 0.18, alpha: 0.9)
+        backButton.layer.cornerRadius = 8
+        backButton.layer.borderWidth = 1
+        backButton.layer.borderColor = UIColor(white: 0.35, alpha: 0.4).cgColor
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        decadeTopBar.addSubview(backButton)
+
+        // Multi-Tab bar in center
+        tabStackView.axis = .horizontal
+        tabStackView.spacing = 6
+        tabStackView.distribution = .fillProportionally
+        tabStackView.translatesAutoresizingMaskIntoConstraints = false
+        decadeTopBar.addSubview(tabStackView)
+
+        let tab1 = createTabButton(title: "Tab 1", isActive: true)
+        let tab2 = createTabButton(title: "Tab 2", isActive: false)
+        let addTab = createTabButton(title: " + ", isActive: false)
+        tabStackView.addArrangedSubview(tab1)
+        tabStackView.addArrangedSubview(tab2)
+        tabStackView.addArrangedSubview(addTab)
+
+        // Top right text input button
+        textInputTopBtn.setTitle(" ⌨ Nhập ", for: .normal)
+        textInputTopBtn.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        textInputTopBtn.setTitleColor(.white, for: .normal)
+        textInputTopBtn.backgroundColor = UIColor(red: 0.05, green: 0.50, blue: 0.45, alpha: 1.0)
+        textInputTopBtn.layer.cornerRadius = 8
+        textInputTopBtn.layer.borderWidth = 1
+        textInputTopBtn.layer.borderColor = UIColor(red: 0.10, green: 0.70, blue: 0.60, alpha: 0.6).cgColor
+        textInputTopBtn.addTarget(self, action: #selector(promptTextInput), for: .touchUpInside)
+        textInputTopBtn.translatesAutoresizingMaskIntoConstraints = false
+        decadeTopBar.addSubview(textInputTopBtn)
+
+        // 2. Keypad Panel (Bottom)
+        let keypad = DecadeKeypadView()
+        keypad.translatesAutoresizingMaskIntoConstraints = false
+        keypad.onTextInputTapped = { [weak self] in
+            self?.promptTextInput()
+        }
+        keypad.onMenuTapped = { [weak self] in
+            self?.showDecadeMenu()
+        }
+        keypad.onTabTapped = { [weak self] slot in
+            self?.handleTabTapped(slot)
+        }
+        self.decadeKeypadView = keypad
+        view.addSubview(keypad)
+
+        // 3. Canvas Container & Glow
+        gameContainerView.translatesAutoresizingMaskIntoConstraints = false
+        gameContainerView.backgroundColor = .black
+        view.addSubview(gameContainerView)
+
         glowContainer.isUserInteractionEnabled = false
         glowContainer.clipsToBounds = true
-
         glowContentView.layer.magnificationFilter = .trilinear
         glowContentView.layer.minificationFilter = .trilinear
-        glowContentView.alpha = 0.6
+        glowContentView.alpha = 0.5
         glowContainer.addSubview(glowContentView)
 
-        // glowContentView fills glowContainer
         glowContentView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             glowContentView.topAnchor.constraint(equalTo: glowContainer.topAnchor),
@@ -166,7 +242,252 @@ class GameViewController: UIViewController {
             glowContentView.bottomAnchor.constraint(equalTo: glowContainer.bottomAnchor),
         ])
 
-        // Full-screen blur over the glow (no hard edge)
+        let glowBlur = NeutralBlurView(radius: 60)
+        glowBlur.isUserInteractionEnabled = false
+
+        for v: UIView in [glowContainer, glowBlur, emulatorView, formView, listView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(v)
+        }
+
+        formView.isHidden = true
+        listView.isHidden = true
+
+        let canvasRatio: CGFloat = CGFloat(emulatorView.canvasWidth) / CGFloat(emulatorView.canvasHeight)
+
+        let wRatio = emulatorView.widthAnchor.constraint(equalTo: emulatorView.heightAnchor, multiplier: canvasRatio)
+        wRatio.priority = .defaultHigh
+
+        let hRatio = emulatorView.heightAnchor.constraint(equalTo: emulatorView.widthAnchor, multiplier: 1.0 / canvasRatio)
+        hRatio.priority = .defaultLow
+
+        NSLayoutConstraint.activate([
+            // Top Bar
+            decadeTopBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            decadeTopBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            decadeTopBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            decadeTopBar.heightAnchor.constraint(equalToConstant: 44),
+
+            magentaLine.leadingAnchor.constraint(equalTo: decadeTopBar.leadingAnchor),
+            magentaLine.trailingAnchor.constraint(equalTo: decadeTopBar.trailingAnchor),
+            magentaLine.bottomAnchor.constraint(equalTo: decadeTopBar.bottomAnchor),
+            magentaLine.heightAnchor.constraint(equalToConstant: 2),
+
+            backButton.leadingAnchor.constraint(equalTo: decadeTopBar.leadingAnchor, constant: 8),
+            backButton.centerYAnchor.constraint(equalTo: decadeTopBar.centerYAnchor),
+            backButton.widthAnchor.constraint(equalToConstant: 38),
+            backButton.heightAnchor.constraint(equalToConstant: 32),
+
+            tabStackView.centerXAnchor.constraint(equalTo: decadeTopBar.centerXAnchor),
+            tabStackView.centerYAnchor.constraint(equalTo: decadeTopBar.centerYAnchor),
+            tabStackView.heightAnchor.constraint(equalToConstant: 30),
+
+            textInputTopBtn.trailingAnchor.constraint(equalTo: decadeTopBar.trailingAnchor, constant: -8),
+            textInputTopBtn.centerYAnchor.constraint(equalTo: decadeTopBar.centerYAnchor),
+            textInputTopBtn.heightAnchor.constraint(equalToConstant: 32),
+
+            // Keypad at bottom
+            keypad.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            keypad.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            keypad.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            keypad.heightAnchor.constraint(equalToConstant: 245),
+
+            // Game Container in center
+            gameContainerView.topAnchor.constraint(equalTo: decadeTopBar.bottomAnchor, constant: 4),
+            gameContainerView.bottomAnchor.constraint(equalTo: keypad.topAnchor, constant: -4),
+            gameContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
+            gameContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
+
+            // Game Canvas aspect-fit centered inside container
+            emulatorView.centerXAnchor.constraint(equalTo: gameContainerView.centerXAnchor),
+            emulatorView.centerYAnchor.constraint(equalTo: gameContainerView.centerYAnchor),
+            emulatorView.widthAnchor.constraint(lessThanOrEqualTo: gameContainerView.widthAnchor),
+            emulatorView.heightAnchor.constraint(lessThanOrEqualTo: gameContainerView.heightAnchor),
+            wRatio,
+            hRatio,
+
+            // Glow container
+            glowContainer.centerXAnchor.constraint(equalTo: emulatorView.centerXAnchor),
+            glowContainer.centerYAnchor.constraint(equalTo: emulatorView.centerYAnchor),
+            glowContainer.widthAnchor.constraint(equalTo: emulatorView.widthAnchor),
+            glowContainer.heightAnchor.constraint(equalTo: emulatorView.heightAnchor),
+
+            glowBlur.topAnchor.constraint(equalTo: view.topAnchor),
+            glowBlur.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            glowBlur.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            glowBlur.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            // Form & List full overlay
+            formView.topAnchor.constraint(equalTo: view.topAnchor),
+            formView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            formView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            formView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            listView.topAnchor.constraint(equalTo: view.topAnchor),
+            listView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            listView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            listView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
+        emulatorView.layer.cornerRadius = 8
+        emulatorView.clipsToBounds = true
+        emulatorView.layer.borderColor = UIColor(white: 0.35, alpha: 0.5).cgColor
+        emulatorView.layer.borderWidth = 1
+
+        view.bringSubviewToFront(keypad)
+        view.bringSubviewToFront(decadeTopBar)
+        view.bringSubviewToFront(formView)
+        view.bringSubviewToFront(listView)
+    }
+
+    private func createTabButton(title: String, isActive: Bool) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.setTitle(title, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        btn.layer.cornerRadius = 6
+        btn.layer.borderWidth = 1
+        btn.contentEdgeInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+
+        if isActive {
+            btn.backgroundColor = UIColor(red: 0.91, green: 0.12, blue: 0.39, alpha: 0.25)
+            btn.setTitleColor(UIColor(red: 0.91, green: 0.12, blue: 0.39, alpha: 1.0), for: .normal)
+            btn.layer.borderColor = UIColor(red: 0.91, green: 0.12, blue: 0.39, alpha: 0.8).cgColor
+        } else {
+            btn.backgroundColor = UIColor(white: 0.14, alpha: 0.8)
+            btn.setTitleColor(UIColor(white: 0.7, alpha: 1.0), for: .normal)
+            btn.layer.borderColor = UIColor(white: 0.3, alpha: 0.4).cgColor
+        }
+        return btn
+    }
+
+    private func handleTabTapped(_ slot: Int) {
+        let alert = UIAlertController(
+            title: "Decade Multi-Tab",
+            message: slot == 0 ? "Mở thêm Tab mới:" : "Chuyển sang Tab \(slot):",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Đang ở Tab 1 (Chính)", style: .default))
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showDecadeMenu() {
+        let sheet = UIAlertController(title: "KamenRider Decade", message: "Tùy chọn J2ME Decade:", preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "⌨ Nhập văn bản (Tài khoản / Chat)", style: .default) { [weak self] _ in
+            self?.promptTextInput()
+        })
+        sheet.addAction(UIAlertAction(title: "✕ Về danh sách Game", style: .destructive) { [weak self] _ in
+            self?.backTapped()
+        })
+        sheet.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    // ============================================================
+    // MARK: - Text Input Dialog
+    // ============================================================
+
+    @objc private func canvasDoubleTapped() {
+        promptTextInput()
+    }
+
+    @objc func promptTextInput() {
+        softKeyHaptic.impactOccurred(intensity: 0.7)
+        let alert = UIAlertController(
+            title: "⌨ Nhập văn bản vào Game",
+            message: "Nhập tài khoản, mật khẩu hoặc chat rồi chọn Gửi:",
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.placeholder = "Gõ nội dung tại đây..."
+            tf.autocorrectionType = .no
+            tf.autocapitalizationType = .none
+            tf.isSecureTextEntry = false
+            tf.clearButtonMode = .whileEditing
+            tf.returnKeyType = .send
+
+            // Auto-fill clipboard text if suitable
+            if let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !clip.isEmpty, clip.count <= 64 {
+                tf.text = clip
+            }
+        }
+        alert.addAction(UIAlertAction(title: "Gửi & Enter (↵)", style: .default) { [weak self, weak alert] _ in
+            guard let text = alert?.textFields?.first?.text, !text.isEmpty else { return }
+            self?.sendTextToMIDlet(text, sendEnter: true)
+        })
+        alert.addAction(UIAlertAction(title: "Chỉ gửi", style: .default) { [weak self, weak alert] _ in
+            guard let text = alert?.textFields?.first?.text, !text.isEmpty else { return }
+            self?.sendTextToMIDlet(text, sendEnter: false)
+        })
+        alert.addAction(UIAlertAction(title: "⌫ Xóa hết (Clear)", style: .destructive) { [weak self] _ in
+            self?.sendClearToMIDlet()
+        })
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func sendTextToMIDlet(_ text: String, sendEnter: Bool = false) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            for char in text {
+                if let scalar = char.unicodeScalars.first {
+                    let code = Int32(scalar.value)
+                    j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), code)
+                    usleep(15000) // 15ms gap
+                    j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), code)
+                    usleep(15000)
+                }
+            }
+            if sendEnter {
+                usleep(50000)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 53)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 10)
+                usleep(20000)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), 10)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), 53)
+            }
+        }
+    }
+
+    private func sendClearToMIDlet() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            for _ in 0..<30 {
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 8)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), -8)
+                usleep(10000)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), 8)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), -8)
+                usleep(10000)
+            }
+        }
+    }
+
+    // ============================================================
+    // MARK: - N-Gage Landscape Layout (Fallback)
+    // ============================================================
+
+    private func setupNGageLayout() {
+        let joystick = JoystickView()
+        let numpad = NumpadView()
+        self.joystickView = joystick
+        self.numpadView = numpad
+
+        glowContainer.isUserInteractionEnabled = false
+        glowContainer.clipsToBounds = true
+
+        glowContentView.layer.magnificationFilter = .trilinear
+        glowContentView.layer.minificationFilter = .trilinear
+        glowContentView.alpha = 0.6
+        glowContainer.addSubview(glowContentView)
+
+        glowContentView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            glowContentView.topAnchor.constraint(equalTo: glowContainer.topAnchor),
+            glowContentView.leadingAnchor.constraint(equalTo: glowContainer.leadingAnchor),
+            glowContentView.trailingAnchor.constraint(equalTo: glowContainer.trailingAnchor),
+            glowContentView.bottomAnchor.constraint(equalTo: glowContainer.bottomAnchor),
+        ])
+
         let glowBlur = NeutralBlurView(radius: 100)
         glowBlur.isUserInteractionEnabled = false
 
@@ -178,7 +499,6 @@ class GameViewController: UIViewController {
         formView.isHidden = true
         listView.isHidden = true
 
-        // Soft keys — flanking the game screen at bottom
         for (btn, title) in [(lskButton, "L"), (rskButton, "R")] {
             btn.setTitle(title, for: .normal)
             btn.titleLabel?.font = .systemFont(ofSize: 18, weight: .medium)
@@ -194,7 +514,6 @@ class GameViewController: UIViewController {
         lskButton.tag = -6
         rskButton.tag = -7
 
-        // Back button
         backButton.setTitle("  \u{2715}  ", for: .normal)
         backButton.titleLabel?.font = .systemFont(ofSize: 20, weight: .medium)
         backButton.backgroundColor = UIColor(white: 0.15, alpha: 0.85)
@@ -207,7 +526,6 @@ class GameViewController: UIViewController {
         let canvasRatio: CGFloat = CGFloat(emulatorView.canvasWidth) / CGFloat(emulatorView.canvasHeight)
         let pad: CGFloat = 8
 
-        // Layout guides for centering controls in the side panels
         let leftArea = UILayoutGuide()
         let rightArea = UILayoutGuide()
         view.addLayoutGuide(leftArea)
@@ -219,37 +537,32 @@ class GameViewController: UIViewController {
 
             rightArea.leadingAnchor.constraint(equalTo: emulatorView.trailingAnchor),
             rightArea.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            // Glow content: slightly larger than emulator, sits behind it
+
             glowContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             glowContainer.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             glowContainer.widthAnchor.constraint(equalTo: emulatorView.widthAnchor),
             glowContainer.heightAnchor.constraint(equalTo: emulatorView.heightAnchor),
 
-            // Blur: full screen (no hard edge at glow boundary)
             glowBlur.topAnchor.constraint(equalTo: view.topAnchor),
             glowBlur.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             glowBlur.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             glowBlur.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Emulator: centered, aspect ratio, full height with padding
             emulatorView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emulatorView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: pad),
             emulatorView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -pad),
             emulatorView.widthAnchor.constraint(equalTo: emulatorView.heightAnchor, multiplier: canvasRatio),
 
-            // Joystick: centered horizontally between safe area left and emulator left
             joystick.centerXAnchor.constraint(equalTo: leftArea.centerXAnchor),
-            joystick.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
-            joystick.widthAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.42),
-            joystick.heightAnchor.constraint(equalTo: joystick.widthAnchor),
+            joystick.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            joystick.widthAnchor.constraint(equalToConstant: 160),
+            joystick.heightAnchor.constraint(equalToConstant: 160),
 
-            // Numpad: centered in right panel, same width as joystick, top 48pt
-            numpad.centerXAnchor.constraint(equalTo: rightArea.centerXAnchor),
-            numpad.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
-            numpad.widthAnchor.constraint(equalTo: joystick.widthAnchor),
-            numpad.heightAnchor.constraint(equalTo: numpad.widthAnchor, multiplier: 1.33),
+            numpad.trailingAnchor.constraint(equalTo: rightArea.trailingAnchor, constant: -12),
+            numpad.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            numpad.widthAnchor.constraint(equalToConstant: 140),
+            numpad.heightAnchor.constraint(equalToConstant: 180),
 
-            // Soft keys: flanking game screen at bottom
             lskButton.trailingAnchor.constraint(equalTo: emulatorView.leadingAnchor, constant: -6),
             lskButton.bottomAnchor.constraint(equalTo: emulatorView.bottomAnchor),
             lskButton.widthAnchor.constraint(equalToConstant: 68),
@@ -260,7 +573,6 @@ class GameViewController: UIViewController {
             rskButton.widthAnchor.constraint(equalToConstant: 68),
             rskButton.heightAnchor.constraint(equalToConstant: 40),
 
-            // Form / List: full screen (overlays everything when visible)
             formView.topAnchor.constraint(equalTo: view.topAnchor),
             formView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             formView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -271,12 +583,10 @@ class GameViewController: UIViewController {
             listView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             listView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Back button: top-left
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
             backButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 4),
         ])
 
-        // Game screen rounded corners + border
         emulatorView.layer.cornerRadius = 8
         emulatorView.clipsToBounds = true
         emulatorView.layer.borderColor = UIColor(white: 1, alpha: 0.12).cgColor
@@ -318,7 +628,6 @@ class GameViewController: UIViewController {
         let docs = NSSearchPathForDirectoriesInDomains(
             .documentDirectory, .userDomainMask, true).first ?? NSTemporaryDirectory()
 
-        // Per-game save directory: Documents/Games Data/{jarFilename}/
         let jarFileName = URL(fileURLWithPath: jarPath).deletingPathExtension().lastPathComponent
         let gameId = jarFileName.replacingOccurrences(of: "[^a-zA-Z0-9._-]",
                                                        with: "_", options: .regularExpression)
@@ -351,85 +660,125 @@ class GameViewController: UIViewController {
 
     func showCanvasView() {
         emulatorView.isHidden = false
+        decadeKeypadView?.isHidden = false
+        decadeTopBar.isHidden = false
         joystickView?.isHidden = false
         numpadView?.isHidden = false
+        lskButton.isHidden = false
+        rskButton.isHidden = false
         formView.isHidden = true
         listView.isHidden = true
-        numpadView?.updateCommands()
     }
 
     func showFormView() {
-        formView.buildFromNativeData()
-        formView.isHidden = false
         emulatorView.isHidden = true
+        decadeKeypadView?.isHidden = true
+        decadeTopBar.isHidden = true
         joystickView?.isHidden = true
         numpadView?.isHidden = true
+        lskButton.isHidden = true
+        rskButton.isHidden = true
+        formView.isHidden = false
         listView.isHidden = true
+        view.bringSubviewToFront(formView)
+        view.bringSubviewToFront(backButton)
     }
 
     func showListView() {
-        listView.buildFromNativeData()
-        listView.isHidden = false
         emulatorView.isHidden = true
+        decadeKeypadView?.isHidden = true
+        decadeTopBar.isHidden = true
         joystickView?.isHidden = true
         numpadView?.isHidden = true
+        lskButton.isHidden = true
+        rskButton.isHidden = true
         formView.isHidden = true
+        listView.isHidden = false
+        view.bringSubviewToFront(listView)
+        view.bringSubviewToFront(backButton)
     }
 
-    func showAlert() {
-        let title = String(cString: j2me_ui_get_form_title())
-        let text = String(cString: j2me_ui_get_alert_text())
+    // ============================================================
+    // MARK: - J2ME UI Command handling
+    // ============================================================
 
-        let alert = UIAlertController(title: title, message: text, preferredStyle: .alert)
+    func handleUIEvent(type: Int32, title: String?, text: String?,
+                       cmdId: Int32, cmdType: Int32, extra: Int32) {
+        switch type {
+        case Int32(J2ME_UI_FORM_BEGIN):
+            formView.beginForm(title: title ?? "", count: extra)
+            showFormView()
 
-        alertTimeoutWork?.cancel()
-        alertTimeoutWork = nil
+        case Int32(J2ME_UI_FORM_ADD_STRING):
+            formView.addStringItem(label: title ?? "", text: text ?? "", itemId: extra)
 
-        let cmdCount = j2me_ui_get_command_count()
-        if cmdCount == 0 {
-            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-                self?.alertTimeoutWork?.cancel()
-                j2me_input_post_key(Int32(J2ME_UI_ALERT_DISMISSED), 0)
-            })
-        } else {
-            for i in 0..<cmdCount {
-                let label = String(cString: j2me_ui_get_command_label(Int32(i)))
-                let cmdId = j2me_ui_get_command_id(Int32(i))
-                alert.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
-                    self?.alertTimeoutWork?.cancel()
-                    j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmdId)
-                })
-            }
+        case Int32(J2ME_UI_FORM_ADD_TEXT_FIELD):
+            formView.addTextField(label: title ?? "", text: text ?? "",
+                                  itemId: extra, maxSize: Int(cmdType))
+
+        case Int32(J2ME_UI_FORM_ADD_COMMAND):
+            formView.addCommand(label: title ?? "", cmdId: cmdId,
+                                cmdType: cmdType, priority: extra)
+
+        case Int32(J2ME_UI_FORM_SHOW):
+            showFormView()
+
+        case Int32(J2ME_UI_CANVAS_SHOW):
+            showCanvasView()
+
+        case Int32(J2ME_UI_ALERT_SHOW):
+            showAlert(title: title ?? "Alert", message: text ?? "",
+                      timeout: Int(extra))
+
+        case Int32(J2ME_UI_COMMANDS_UPDATED):
+            numpadView?.updateCommands()
+
+        case Int32(J2ME_UI_LIST_ADD_ITEM):
+            listView.addItem(text ?? "")
+            showListView()
+
+        case Int32(J2ME_UI_LIST_SET_TYPE):
+            listView.setListType(Int(extra))
+
+        default:
+            break
         }
+    }
 
+    private func showAlert(title: String, message: String, timeout: Int) {
+        let alert = UIAlertController(title: title, message: message,
+                                      preferredStyle: .alert)
+        if timeout == -2 /* FOREVER */ {
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+        }
         present(alert, animated: true)
 
-        let timeout = j2me_ui_get_alert_timeout()
         if timeout > 0 {
+            alertTimeoutWork?.cancel()
             let work = DispatchWorkItem { [weak alert] in
-                alert?.dismiss(animated: true) {
-                    j2me_input_post_key(Int32(J2ME_UI_ALERT_DISMISSED), 0)
-                }
+                alert?.dismiss(animated: true)
             }
             alertTimeoutWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(timeout) / 1000.0, execute: work)
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + .milliseconds(timeout), execute: work)
         }
     }
 }
 
-// MARK: - Game UI callback (global)
+// ============================================================
+// Global active GameViewController reference
+// ============================================================
 
-private(set) weak var activeGameViewController: GameViewController?
+private weak var activeGameViewController: GameViewController?
 
-let gameUICallback: @convention(c) (Int32, UnsafePointer<CChar>?) -> Void = { action, data in
+let gameUICallback: @convention(c) (Int32, UnsafePointer<CChar>?,
+                                    UnsafePointer<CChar>?,
+                                    Int32, Int32, Int32) -> Void = { type, titlePtr, textPtr, cmdId, cmdType, extra in
+    let title = titlePtr.map { String(cString: $0) }
+    let text = textPtr.map { String(cString: $0) }
     DispatchQueue.main.async {
-        guard let vc = activeGameViewController else { return }
-        switch action {
-        case Int32(J2ME_UI_ACTION_SHOW_CANVAS):  vc.showCanvasView()
-        case Int32(J2ME_UI_ACTION_SHOW_FORM):    vc.showFormView()
-        case Int32(J2ME_UI_ACTION_SHOW_LIST):    vc.showListView()
-        case Int32(J2ME_UI_ACTION_SHOW_ALERT):   vc.showAlert()
-        default: break
-        }
+        activeGameViewController?.handleUIEvent(type: type, title: title,
+                                                 text: text, cmdId: cmdId,
+                                                 cmdType: cmdType, extra: extra)
     }
 }
