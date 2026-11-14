@@ -41,9 +41,19 @@ js2me.launchThread = function (func) {
 			js2me.isThreadSuspended = false;
 		} catch (e) {
 			console.error(e.stack);
-			js2me.showError(e.message);
+			if (js2me.showError) {
+				js2me.showError(e.message);
+			} else if (window.alert) {
+				alert('Lỗi VM: ' + e.message);
+			}
 		}
 	}, 1);
+};
+js2me.showError = function (message) {
+	console.error('[Decade VM Error]', message);
+	if (window.alert) {
+		alert('Lỗi VM: ' + message);
+	}
 };
 js2me.lastThread = 1;
 js2me.enterMonitor = function (obj) {

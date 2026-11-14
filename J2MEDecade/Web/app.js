@@ -24,6 +24,54 @@
         'STAR': 42, '0': 48, 'HASH': 35
     };
 
+    // Persistent Game Storage (IndexedDB - replicates J2ME-Loader on Android)
+    const GameDB = {
+        dbName: 'DecadeJ2MEDB',
+        version: 1,
+        db: null,
+
+        open() {
+            return new Promise((resolve, reject) => {
+                if (this.db) return resolve(this.db);
+                if (typeof indexedDB === 'undefined') return reject(new Error('IndexedDB not supported'));
+                const req = indexedDB.open(this.dbName, this.version);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('games')) {
+                        db.createObjectStore('games', { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = (e) => {
+                    this.db = e.target.result;
+                    resolve(this.db);
+                };
+                req.onerror = (e) => reject(e);
+            });
+        },
+
+        saveGame(game) {
+            return this.open().then(db => {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('games', 'readwrite');
+                    tx.objectStore('games').put(game);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e);
+                });
+            });
+        },
+
+        getAllGames() {
+            return this.open().then(db => {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('games', 'readonly');
+                    const req = tx.objectStore('games').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = (e) => reject(e);
+                });
+            }).catch(() => []);
+        }
+    };
+
     const App = {
         currentView: 'home', // 'home' | 'game'
         slots: {},
@@ -40,6 +88,7 @@
 
             this.bindUI();
             this.preloadEmbeddedGame();
+            this.loadInstalledGames();
         },
 
         // Preload nic.jar bundled in app
@@ -129,6 +178,8 @@
 
             if (window.js2me && window.js2me.launchJAR) {
                 try {
+                    window.js2me.statics1 = {};
+                    window.js2me.statics = window.js2me.statics1;
                     window.js2me.currentVM = this.activeSlotId;
                     window.js2me.launchJAR(jarBlob);
                 } catch (e) {
@@ -138,9 +189,9 @@
             }
         },
 
-        bindUI() {
-            // Tap Game "a" on Home Screen
+        bindGameA() {
             const gameA = document.getElementById('item-game-a');
+            if (!gameA) return;
             const openGameA = () => {
                 if (this.embeddedJarBlob) {
                     this.launchGame(this.embeddedJarBlob, 'a');
@@ -167,6 +218,108 @@
                 e.preventDefault();
                 openGameA();
             });
+        },
+
+        loadInstalledGames() {
+            GameDB.getAllGames().then(games => {
+                const list = document.getElementById('installed-game-list');
+                list.innerHTML = `
+                    <div class="game-item" id="item-game-a">
+                        <img src="decade_icon.png" class="game-icon" alt="Decade Icon">
+                        <div class="game-info">
+                            <span class="game-name">a</span>
+                            <span class="game-vendor">Havan</span>
+                        </div>
+                        <span class="game-version">1.0.0</span>
+                    </div>
+                `;
+                this.bindGameA();
+
+                games.forEach(game => {
+                    const item = document.createElement('div');
+                    item.className = 'game-item';
+                    item.dataset.gameId = game.id;
+                    item.innerHTML = `
+                        <img src="${game.icon || 'decade_icon.png'}" class="game-icon" alt="Game Icon">
+                        <div class="game-info">
+                            <span class="game-name">${game.name}</span>
+                            <span class="game-vendor">${game.vendor}</span>
+                        </div>
+                        <span class="game-version">${game.version}</span>
+                    `;
+                    const launchThis = () => this.launchGame(game.blob, game.name);
+                    item.addEventListener('click', launchThis);
+                    item.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        launchThis();
+                    });
+                    list.appendChild(item);
+                });
+            });
+        },
+
+        installJarFile(file) {
+            const defaultName = file.name.replace(/\.jar$/i, '');
+            const reader = new zip.BlobReader(file);
+            zip.createReader(reader, (zipReader) => {
+                zipReader.getEntries((entries) => {
+                    let manifestEntry = null;
+                    let iconEntry = null;
+                    for (let entry of entries) {
+                        const fn = entry.filename.toLowerCase();
+                        if (fn === 'meta-inf/manifest.mf') {
+                            manifestEntry = entry;
+                        }
+                        if (fn.endsWith('.png') && (fn.includes('icon') || !iconEntry)) {
+                            iconEntry = entry;
+                        }
+                    }
+
+                    const finalize = (mfText, iconDataUrl) => {
+                        const mf = js2me.parseManifest ? js2me.parseManifest(mfText) : {};
+                        const name = (mf['midlet-name'] || defaultName).trim();
+                        const vendor = (mf['midlet-vendor'] || 'Decade').trim();
+                        const version = (mf['midlet-version'] || '1.0.0').trim();
+
+                        const gameRecord = {
+                            id: 'game_' + Date.now(),
+                            name: name,
+                            vendor: vendor,
+                            version: version,
+                            icon: iconDataUrl || 'decade_icon.png',
+                            blob: file
+                        };
+
+                        GameDB.saveGame(gameRecord).then(() => {
+                            this.loadInstalledGames();
+                            this.launchGame(file, name);
+                        }).catch(() => {
+                            this.launchGame(file, name);
+                        });
+                    };
+
+                    if (manifestEntry) {
+                        manifestEntry.getData(new zip.TextWriter(), (text) => {
+                            if (iconEntry) {
+                                iconEntry.getData(new zip.Data64URIWriter(), (dataUri) => {
+                                    finalize(text, dataUri);
+                                });
+                            } else {
+                                finalize(text, null);
+                            }
+                        });
+                    } else {
+                        finalize('', null);
+                    }
+                });
+            }, (err) => {
+                console.warn('Install error, launching directly:', err);
+                this.launchGame(file, defaultName);
+            });
+        },
+
+        bindUI() {
+            this.bindGameA();
 
             // FAB "+" Button to pick other JARs
             const fabInput = document.getElementById('fab-file-input');
@@ -176,8 +329,7 @@
             fabInput.addEventListener('change', (e) => {
                 if (e.target.files && e.target.files[0]) {
                     const file = e.target.files[0];
-                    const name = file.name.replace(/\.jar$/i, '');
-                    this.launchGame(file, name);
+                    this.installJarFile(file);
                 }
             });
 

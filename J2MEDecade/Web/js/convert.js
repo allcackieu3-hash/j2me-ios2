@@ -309,6 +309,9 @@
 				if (attributes['ConstantValue']) {
 					newClass.prototype['$' + lastFieldId] = attributes['ConstantValue'];
 				}
+				if (!js2me.statics) {
+					js2me.statics = {};
+				}
 				js2me.statics['$' + lastFieldId] = newClass.prototype['$' + lastFieldId];
 				lastFieldId++;
 			}
@@ -369,14 +372,15 @@
 						value.push(constantPool[stream.readUint16()]);
 					}
 				}
-				if (attributeName == 'StackMap' || attributeName == 'LineNumberTable' || attributeName == 'SourceFile' ||
-					attributeName == 'LocalVariableTable') {
-					//TODO: maybe it's needed by something?
+				if (attributeName == 'StackMap' || attributeName == 'StackMapTable' || attributeName == 'LineNumberTable' || attributeName == 'SourceFile' ||
+					attributeName == 'LocalVariableTable' || attributeName == 'LocalVariableTypeTable' || attributeName == 'Signature' || attributeName == 'Deprecated' || attributeName == 'Synthetic') {
 					stream.skip(attributeLength);
 					value = true;
 				}
 				if (value == null) {
-					throw new Error('Unimplemented attribute ' + attributeName);
+					console.warn('Skipping unrecognized attribute: ' + attributeName);
+					stream.skip(attributeLength);
+					value = true;
 				}
 				attributes[attributeName] = value;
 			}

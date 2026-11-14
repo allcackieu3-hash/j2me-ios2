@@ -63,7 +63,15 @@ js2me.generateMethodStub = function(newClass, stream, methodName, constantPool, 
 			return js2me.execute(data, locals, data.constantPool, exceptions, null, callback);
 		}
 	};
-	stub.isUnsafe = !localStorage.getItem(js2me.storageName + methodName);
+	var isUnsafe = true;
+	try {
+		if (typeof localStorage !== 'undefined' && localStorage && localStorage.getItem) {
+			isUnsafe = !localStorage.getItem(js2me.storageName + methodName);
+		}
+	} catch (e) {
+		isUnsafe = true;
+	}
+	stub.isUnsafe = isUnsafe;
 	stub.data = data;
 	return stub;
 };
