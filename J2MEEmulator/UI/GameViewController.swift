@@ -26,9 +26,9 @@ enum GameLayoutMode {
 
 class GameViewController: UIViewController {
 
-    let jarPath: String
-    let appName: String
-    let appIcon: UIImage
+    var jarPath: String
+    var appName: String
+    var appIcon: UIImage
     let canvasWidth: Int
     let canvasHeight: Int
     let render3dScale: Int
@@ -534,7 +534,7 @@ class GameViewController: UIViewController {
         // Update top bar title & current session info
         titleLabel.text = session.appName
         appName = session.appName
-        currentAppPath = session.jarPath
+        jarPath = session.jarPath
         if let icon = session.icon {
             appIcon = icon
         }
