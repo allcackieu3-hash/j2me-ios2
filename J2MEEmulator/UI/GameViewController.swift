@@ -458,33 +458,7 @@ class GameViewController: UIViewController {
     }
 
     private func showProxyPickerForSlot(_ slot: Int) {
-        let proxies = DecadeProxyManager.shared.proxies
-        let sheet = UIAlertController(
-            title: "Chọn Proxy cho Tab \(slot + 1)",
-            message: "Proxy đã chọn sẽ tự động kết nối ngầm cho Tab này:",
-            preferredStyle: .actionSheet
-        )
-
-        sheet.addAction(UIAlertAction(title: "🚫 Không dùng proxy", style: .default) { [weak self] _ in
-            DecadeProxyManager.shared.setProxyForSlot(slot, proxy: nil)
-            self?.showToast(message: "Tab \(slot + 1): Đã tắt proxy")
-        })
-
-        for p in proxies {
-            sheet.addAction(UIAlertAction(title: "⚡ \(p.displayTitle) (\(p.type.uppercased()))", style: .default) { [weak self] _ in
-                DecadeProxyManager.shared.setProxyForSlot(slot, proxy: p)
-                self?.showToast(message: "Tab \(slot + 1): Đã gắn proxy \(p.displayTitle)")
-            })
-        }
-
-        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        if let popover = sheet.popoverPresentationController {
-            if slot < tabButtons.count {
-                popover.sourceView = tabButtons[slot]
-                popover.sourceRect = tabButtons[slot].bounds
-            }
-        }
-        present(sheet, animated: true)
+        openProxyManager(segment: 1)
     }
 
     private func closeTab(at index: Int) {

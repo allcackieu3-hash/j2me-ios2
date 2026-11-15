@@ -515,7 +515,6 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
             guard let self = self else { return }
             let chosen = helper.selectedMap
             let selectedPrefixes = tabs.filter { chosen[$0.prefix] == true }.map { $0.prefix }
-            let unselectedPrefixes = tabs.filter { chosen[$0.prefix] == false }.map { $0.prefix }
 
             if let p = proxy {
                 DecadeProxyManager.shared.assignTabs(appId: self.currentAppId, slot: self.selectedScreenSlot, tabPrefixes: selectedPrefixes, proxyId: p.id)

@@ -130,7 +130,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         ruleStack.addArrangedSubview(makeInput(label: "Cổng đích:", field: portField, placeholder: "14444", isNumber: true))
 
         let addRuleBtn = UIButton(type: .system)
-        addRuleBtn.setTitle("➕ Thêm quy tắc chuyển hướng", style: .default)
+        addRuleBtn.setTitle("➕ Thêm quy tắc chuyển hướng", for: .normal)
         addRuleBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         addRuleBtn.addTarget(self, action: #selector(addRuleTapped), for: .touchUpInside)
         ruleStack.addArrangedSubview(addRuleBtn)
