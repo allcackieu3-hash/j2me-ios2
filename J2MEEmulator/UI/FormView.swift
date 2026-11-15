@@ -297,7 +297,7 @@ class FormView: UIView, UITextFieldDelegate {
         commandButtons.removeAll()
         commands.removeAll()
 
-        let count = j2me_ui_get_form_item_count()
+        let count = Int(j2me_ui_get_form_item_count())
         for i in 0..<count {
             let itemType = j2me_ui_get_form_item_type(Int32(i))
             let label = String(cString: j2me_ui_get_form_item_label(Int32(i)))

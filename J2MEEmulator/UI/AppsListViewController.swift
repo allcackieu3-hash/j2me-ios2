@@ -40,7 +40,7 @@ class AppsListViewController: UIViewController,
             bg.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        // Top bar buttons matching Decade Android (Screenshot 1 & 2): Search, Sort, 3-dots
+        // Top bar buttons matching Decade Android (Screenshot 4): 3-dots menu
         let moreMenu = UIMenu(title: "", children: [
             UIAction(title: "Quản lý Proxy", image: UIImage(systemName: "network")) { [weak self] _ in
                 self?.showProxyDialog()
@@ -51,8 +51,17 @@ class AppsListViewController: UIViewController,
             UIAction(title: "Thiết lập", image: UIImage(systemName: "gearshape")) { [weak self] _ in
                 self?.showGlobalSettings()
             },
+            UIAction(title: "Hồ sơ", image: UIImage(systemName: "person.circle")) { [weak self] _ in
+                self?.showProfilesDialog()
+            },
+            UIAction(title: "Trợ giúp", image: UIImage(systemName: "questionmark.circle")) { [weak self] _ in
+                self?.showHelpDialog()
+            },
             UIAction(title: "Lưu log", image: UIImage(systemName: "doc.text")) { [weak self] _ in
                 self?.saveLogs()
+            },
+            UIAction(title: "Thoát", image: UIImage(systemName: "xmark.circle"), attributes: .destructive) { _ in
+                exit(0)
             },
         ])
         let moreItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: moreMenu)
@@ -352,18 +361,32 @@ class AppsListViewController: UIViewController,
     }
 
     func collectionView(_ collectionView: UICollectionView,
+                        contextMenuConfigurationForItemAt indexPath: IndexPath,
+                        point: CGPoint) -> UIContextMenuConfiguration? {
+        return makeContextMenu(for: indexPath)
+    }
+
+    func collectionView(_ collectionView: UICollectionView,
                         contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
                         point: CGPoint) -> UIContextMenuConfiguration? {
         guard let indexPath = indexPaths.first else { return nil }
+        return makeContextMenu(for: indexPath)
+    }
+
+    private func makeContextMenu(for indexPath: IndexPath) -> UIContextMenuConfiguration {
         let app = apps[indexPath.item]
         return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
-            // Authentic Decade Android Context Menu matching Screenshot 2:
-            // 1. Thêm lối tắt / Bắt đầu
-            // 2. Đổi tên
-            // 3. Thiết lập -> opens DecadeConfigViewController (Screenshot 3)
-            // 4. Cài đặt lại
-            // 5. Xóa
+            // Authentic Decade Android Context Menu matching Screenshot 5:
+            // 1. Bắt đầu
+            // 2. Thêm lối tắt
+            // 3. Đổi tên
+            // 4. Thiết lập -> opens DecadeConfigViewController (Screenshot 6)
+            // 5. Cài đặt lại
+            // 6. Xóa
             let startAction = UIAction(title: "Bắt đầu", image: UIImage(systemName: "play.fill")) { _ in
+                self?.launchGame(app: app)
+            }
+            let shortcutAction = UIAction(title: "Thêm lối tắt", image: UIImage(systemName: "arrow.up.forward.app")) { _ in
                 self?.launchGame(app: app)
             }
             let renameAction = UIAction(title: "Đổi tên", image: UIImage(systemName: "pencil")) { _ in
@@ -379,7 +402,7 @@ class AppsListViewController: UIViewController,
                 self?.confirmDeleteApp(at: indexPath)
             }
 
-            return UIMenu(children: [startAction, renameAction, configAction, resetAction, deleteAction])
+            return UIMenu(children: [startAction, shortcutAction, renameAction, configAction, resetAction, deleteAction])
         })
     }
 
@@ -420,6 +443,18 @@ class AppsListViewController: UIViewController,
 
     private func showGlobalSettings() {
         let alert = UIAlertController(title: "Thiết lập chung", message: "Cấu hình toàn hệ thống KamenRider Decade.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showProfilesDialog() {
+        let alert = UIAlertController(title: "Hồ sơ", message: "Quản lý hồ sơ cấu hình KamenRider Decade.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showHelpDialog() {
+        let alert = UIAlertController(title: "Trợ giúp", message: "KamenRider Decade J2ME Emulator cho iOS.\nHỗ trợ game Java và các bản mod ghép đa tài khoản (Ninja School Online, Avatar, v.v.).", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
         present(alert, animated: true)
     }
