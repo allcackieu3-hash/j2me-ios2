@@ -35,7 +35,25 @@ class GameViewController: UIViewController {
     let fpsLimit: Int
     let layoutMode: GameLayoutMode
 
-    private let emulatorView = EmulatorView()
+    static var slotFrames: [Int: CGImage] = [:]
+    static let slotFrameLock = NSLock()
+
+    static func updateSlotFrame(slot: Int, image: CGImage) {
+        slotFrameLock.lock()
+        slotFrames[slot] = image
+        slotFrameLock.unlock()
+
+        DispatchQueue.main.async {
+            guard let vc = activeGameViewController,
+                  vc.activeTabIndex == slot else { return }
+            vc.emulatorView.displayImage(image)
+            if let icon = vc.placeholderIconView, icon.alpha > 0 {
+                UIView.animate(withDuration: 0.15) { icon.alpha = 0 }
+            }
+        }
+    }
+
+    let emulatorView = EmulatorView()
     private let glowContainer = UIView()
     private let glowContentView = UIView()
 
@@ -113,6 +131,9 @@ class GameViewController: UIViewController {
         alertTimeoutWork?.cancel()
         autoShutdownTimer?.invalidate()
         UIApplication.shared.isIdleTimerDisabled = false
+        GameViewController.slotFrameLock.lock()
+        GameViewController.slotFrames.removeAll()
+        GameViewController.slotFrameLock.unlock()
     }
 
     private var alertTimeoutWork: DispatchWorkItem?
@@ -141,9 +162,6 @@ class GameViewController: UIViewController {
         emulatorView.canvasWidth = canvasWidth
         emulatorView.canvasHeight = canvasHeight
 
-        // Attach PiP background display layer for SpringBoard floating window
-        DecadePiPManager.shared.attachDisplayLayer(to: emulatorView)
-
         switch layoutMode {
         case .decade:
             setupDecadeLayout()
@@ -167,9 +185,6 @@ class GameViewController: UIViewController {
             guard let icon = self?.placeholderIconView else { return }
             UIView.animate(withDuration: 0.2) {
                 icon.alpha = 0
-            } completion: { _ in
-                icon.removeFromSuperview()
-                self?.placeholderIconView = nil
             }
         }
 
@@ -179,6 +194,7 @@ class GameViewController: UIViewController {
         // Register native callbacks
         setGlobalEmulatorView(emulatorView)
         j2me_render_set_flush_callback(flushCallback)
+        j2me_render_set_slot_flush_callback(slotFlushCallback)
         j2me_ui_set_callback(gameUICallback)
         activeGameViewController = self
     }
@@ -482,6 +498,10 @@ class GameViewController: UIViewController {
             tabSessions.remove(at: index)
         }
 
+        GameViewController.slotFrameLock.lock()
+        GameViewController.slotFrames.removeValue(forKey: index)
+        GameViewController.slotFrameLock.unlock()
+
         for (i, b) in tabButtons.enumerated() {
             b.tag = i
             b.setTitle("\(i + 1)", for: .normal)
@@ -528,12 +548,31 @@ class GameViewController: UIViewController {
         let targetBtn = tabButtons[index]
         tabScrollView.scrollRectToVisible(targetBtn.frame, animated: true)
 
-        // Update floating bubble info
-        DecadeFloatingBubble.shared.setGameInfo(
-            name: session.appName,
-            icon: session.icon,
-            tabNumber: index + 1
-        )
+        // Hide any subviews (Form, List, TextBox) left from previous tab so they don't leak into new tab
+        textBoxView.isHidden = true
+        formView.isHidden = true
+        listView.isHidden = true
+        emulatorView.isHidden = false
+        decadeKeypadView?.isHidden = isKeypadHidden
+        floatingShowKeypadBtn.isHidden = !isKeypadHidden
+
+        // Immediately isolate and show this tab's frame!
+        GameViewController.slotFrameLock.lock()
+        let cachedFrame = GameViewController.slotFrames[index]
+        GameViewController.slotFrameLock.unlock()
+
+        if let frame = cachedFrame {
+            emulatorView.displayImage(frame)
+            placeholderIconView?.alpha = 0
+        } else if let shot = session.screenshot?.cgImage {
+            emulatorView.displayImage(shot)
+            placeholderIconView?.alpha = 0
+        } else {
+            // New slot has not produced any frame yet: clear canvas and show icon
+            emulatorView.layer.contents = nil
+            placeholderIconView?.image = session.icon
+            placeholderIconView?.alpha = 1.0
+        }
 
         showToast(message: "Chuyển sang Tab \(index + 1): \(session.appName)")
     }
@@ -705,23 +744,6 @@ class GameViewController: UIViewController {
         return img
     }
 
-    private func promptSelectTabFromAssistive() {
-        let alert = UIAlertController(
-            title: "Chuyển Tab",
-            message: "Chọn tab bạn muốn hiển thị:",
-            preferredStyle: .actionSheet
-        )
-        for (i, session) in tabSessions.enumerated() {
-            let prefix = (i == activeTabIndex) ? "✓ " : "   "
-            alert.addAction(UIAlertAction(title: "\(prefix)Tab \(i + 1): \(session.appName)", style: .default) { [weak self] _ in
-                self?.selectTab(at: i)
-                self?.restoreFromFloatingBubble()
-            })
-        }
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        present(alert, animated: true)
-    }
-
     // ============================================================
     // MARK: - Authentic Decade 3-Dot Overflow Menu
     // ============================================================
@@ -735,12 +757,7 @@ class GameViewController: UIViewController {
             self?.backTapped()
         })
 
-        // 2. Ẩn ứng dụng (Bong bóng nổi)
-        alert.addAction(UIAlertAction(title: "🔘 Ẩn ứng dụng (Bong bóng nổi)", style: .default) { [weak self] _ in
-            self?.minimizeToFloatingBubble()
-        })
-
-        // 3. Treo tắt màn (Chạy nền liên tục không ngắt kết nối)
+        // 2. Treo tắt màn (Chạy nền liên tục không ngắt kết nối)
         let keepAwakeTitle = (isKeepAwake ? "✓ " : "   ") + "Treo tắt màn (Chạy nền liên tục)"
         alert.addAction(UIAlertAction(title: keepAwakeTitle, style: .default) { [weak self] _ in
             self?.toggleTreoTatMan()
@@ -850,48 +867,6 @@ class GameViewController: UIViewController {
             dismissOledBlackOverlay()
             showToast(message: "Đã tắt treo tắt màn")
         }
-    }
-
-    private func minimizeToFloatingBubble() {
-        DecadeBackgroundKeeper.shared.setTreoActive(true)
-        let session = (activeTabIndex < tabSessions.count) ? tabSessions[activeTabIndex] : nil
-        DecadeFloatingBubble.shared.setGameInfo(
-            name: session?.appName ?? appName,
-            icon: session?.icon ?? appIcon,
-            tabNumber: activeTabIndex + 1
-        )
-        DecadeFloatingBubble.shared.onRestoreGame = { [weak self] in
-            self?.restoreFromFloatingBubble()
-        }
-        DecadeFloatingBubble.shared.onAssignProxy = { [weak self] in
-            self?.promptAssignProxyForCurrentTab()
-        }
-        DecadeFloatingBubble.shared.onToggleTreo = { [weak self] in
-            self?.toggleTreoTatMan()
-        }
-        DecadeFloatingBubble.shared.onToggleHeadless = { [weak self] in
-            self?.promptFPSLimit()
-        }
-        DecadeFloatingBubble.shared.onSelectTabPrompt = { [weak self] in
-            self?.promptSelectTabFromAssistive()
-        }
-        DecadeFloatingBubble.shared.onTogglePiP = {
-            DecadePiPManager.shared.togglePiP()
-        }
-        DecadeFloatingBubble.shared.show(in: view.window)
-
-        // Minimizing: smoothly return to the Lobby while keeping the session humming
-        navigationController?.popViewController(animated: true)
-        showToast(message: "Đã thu nhỏ game về sảnh — Chạm nút Home ảo để mở lại")
-    }
-
-    private func restoreFromFloatingBubble() {
-        DecadeFloatingBubble.shared.dismissAssistiveTouchMenu(animated: true)
-        if let nav = navigationController, nav.topViewController != self {
-            nav.pushViewController(self, animated: true)
-        }
-        view.window?.bringSubviewToFront(view)
-        showToast(message: "Đang mở: \(titleLabel.text ?? appName)")
     }
 
     private func promptAssignProxyForCurrentTab() {
@@ -1522,6 +1497,10 @@ class GameViewController: UIViewController {
     // ============================================================
 
     private func startGame() {
+        // Tự động kích hoạt chạy nền liên tục và giữ kết nối không bị ngắt
+        DecadeBackgroundKeeper.shared.setTreoActive(true)
+        UIApplication.shared.isIdleTimerDisabled = true
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.runMIDlet()
             DispatchQueue.main.async {
@@ -1694,4 +1673,11 @@ let gameUICallback: @convention(c) (Int32, UnsafePointer<CChar>?) -> Void = { ac
         default: break
         }
     }
+}
+
+let slotFlushCallback: @convention(c) (Int32, UnsafeMutableRawPointer?, Int32, Int32) -> Void = { slot, cgImagePtr, width, height in
+    guard let ptr = cgImagePtr else { return }
+    let cgImage = Unmanaged<CGImage>.fromOpaque(ptr).takeRetainedValue()
+    let slotIdx = Int(slot)
+    GameViewController.updateSlotFrame(slot: slotIdx, image: cgImage)
 }

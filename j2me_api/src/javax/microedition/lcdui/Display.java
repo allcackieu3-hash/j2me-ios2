@@ -44,6 +44,14 @@ public class Display {
     public void setCurrent(Displayable d) {
         if (d == null) return;
         Displayable old = current;
+
+        // If the user is actively viewing/editing a Form (e.g. "Cài đặt cơ bản") or TextBox,
+        // do not let a background game thread call setCurrent(Canvas) to interrupt the Form!
+        if ((old instanceof Form || old instanceof TextBox) && d instanceof Canvas) {
+            System.out.println("[Display] Ignored background setCurrent(Canvas) while user is viewing Form/TextBox");
+            return;
+        }
+
         current = d;
 
         d.width = screenWidth;

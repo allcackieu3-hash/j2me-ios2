@@ -853,17 +853,22 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         cell.backgroundColor = isSelected ? UIColor(red: 0.80, green: 0.84, blue: 0.98, alpha: 1.0) : .white
 
         var config = cell.defaultContentConfiguration()
-        config.text = items[indexPath.row]
-        config.textProperties.font = .systemFont(ofSize: 16, weight: .medium)
-        config.textProperties.color = .black
-
-        // Check if item has active green play icon (like Screenshot 3)
-        if items[indexPath.row].hasPrefix("▶") || items[indexPath.row].contains("play") {
+        var itemText = items[indexPath.row]
+        let isRunning = itemText.hasPrefix("▶") || itemText.contains("play")
+        if isRunning {
+            if itemText.hasPrefix("▶ ") {
+                itemText = String(itemText.dropFirst(2))
+            } else if itemText.hasPrefix("▶") {
+                itemText = String(itemText.dropFirst(1))
+            }
             config.image = UIImage(systemName: "play.fill")
             config.imageProperties.tintColor = UIColor(red: 0.30, green: 0.69, blue: 0.31, alpha: 1.0)
         } else {
             config.image = nil
         }
+        config.text = itemText
+        config.textProperties.font = .systemFont(ofSize: 16, weight: .medium)
+        config.textProperties.color = .black
 
         cell.contentConfiguration = config
         cell.selectionStyle = .none
