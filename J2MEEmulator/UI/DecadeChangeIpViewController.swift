@@ -2,12 +2,17 @@
 //  DecadeChangeIpViewController.swift
 //  J2MEEmulator
 //
-//  Authentic Decade "Thay IP Phiên Bản" screen (IP redirection).
+//  1:1 Replica of Decade APK "Thay IP Phiên Bản" (Server Destination Redirection)
+//  Redirects game socket connections to custom server IP/Port (e.g. private servers).
 //
 
 import UIKit
 
 class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+
+    private let globalSwitch = UISwitch()
+    private let globalHostField = UITextField()
+    private let globalPortField = UITextField()
 
     private let oldIpField = UITextField()
     private let newIpField = UITextField()
@@ -24,7 +29,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
         setupNavBar()
         setupUI()
-        loadRules()
+        loadSettings()
     }
 
     private func setupNavBar() {
@@ -37,10 +42,11 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         navigationController?.navigationBar.tintColor = .white
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Đóng", style: .plain, target: self, action: #selector(closeTapped))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Thêm", style: .done, target: self, action: #selector(addRuleTapped))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Lưu", style: .done, target: self, action: #selector(saveGlobalSettings))
     }
 
     @objc private func closeTapped() {
+        saveGlobalSettings()
         dismiss(animated: true)
     }
 
@@ -51,45 +57,103 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
 
-        // Header view with input form
-        let headerView = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 260))
-        let card = UIView()
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 12
-        card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOpacity = 0.05
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 4
-        card.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(card)
+        // Header view with global override + rule form
+        let headerView = UIView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 420))
 
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 10
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(stack)
+        // Card 1: Global Server Destination Override (Matching APK ChangeIpActivity)
+        let globalCard = UIView()
+        globalCard.backgroundColor = .white
+        globalCard.layer.cornerRadius = 12
+        globalCard.layer.shadowColor = UIColor.black.cgColor
+        globalCard.layer.shadowOpacity = 0.05
+        globalCard.layer.shadowOffset = CGSize(width: 0, height: 2)
+        globalCard.layer.shadowRadius = 4
+        globalCard.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(globalCard)
 
-        let descLabel = UILabel()
-        descLabel.text = "Chuyển hướng kết nối mạng J2ME sang địa chỉ IP máy chủ mới (vd: server private):"
-        descLabel.font = .systemFont(ofSize: 13)
-        descLabel.textColor = .secondaryLabel
-        descLabel.numberOfLines = 0
-        stack.addArrangedSubview(descLabel)
+        let globalStack = UIStackView()
+        globalStack.axis = .vertical
+        globalStack.spacing = 10
+        globalStack.translatesAutoresizingMaskIntoConstraints = false
+        globalCard.addSubview(globalStack)
 
-        stack.addArrangedSubview(makeInput(label: "IP/Host nguồn (Cũ):", field: oldIpField, placeholder: "123.30.238.16 hoặc nso1.teamobi.com"))
-        stack.addArrangedSubview(makeInput(label: "IP/Host đích (Mới):", field: newIpField, placeholder: "103.179.188.45"))
-        stack.addArrangedSubview(makeInput(label: "Cổng kết nối:", field: portField, placeholder: "14444 (Tùy chọn)", isNumber: true))
+        let switchRow = UIStackView()
+        switchRow.axis = .horizontal
+        switchRow.alignment = .center
+        switchRow.distribution = .equalSpacing
+
+        let switchLabel = UILabel()
+        switchLabel.text = "Đổi máy chủ kết nối của game"
+        switchLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        switchLabel.textColor = .black
+        switchRow.addArrangedSubview(switchLabel)
+
+        globalSwitch.addTarget(self, action: #selector(switchChanged), for: .valueChanged)
+        switchRow.addArrangedSubview(globalSwitch)
+        globalStack.addArrangedSubview(switchRow)
+
+        let noteLabel = UILabel()
+        noteLabel.text = "Chức năng này đổi IP/cổng máy chủ đích của game (vd: vào server riêng), không phải proxy."
+        noteLabel.font = .systemFont(ofSize: 12)
+        noteLabel.textColor = .secondaryLabel
+        noteLabel.numberOfLines = 0
+        globalStack.addArrangedSubview(noteLabel)
+
+        globalStack.addArrangedSubview(makeInput(label: "IP/Host máy chủ mới:", field: globalHostField, placeholder: "vd: 103.179.188.45"))
+        globalStack.addArrangedSubview(makeInput(label: "Cổng máy chủ mới:", field: globalPortField, placeholder: "vd: 14444", isNumber: true))
+
+        // Card 2: Specific Redirect Rule (Old IP -> New IP)
+        let ruleCard = UIView()
+        ruleCard.backgroundColor = .white
+        ruleCard.layer.cornerRadius = 12
+        ruleCard.layer.shadowColor = UIColor.black.cgColor
+        ruleCard.layer.shadowOpacity = 0.05
+        ruleCard.layer.shadowOffset = CGSize(width: 0, height: 2)
+        ruleCard.layer.shadowRadius = 4
+        ruleCard.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(ruleCard)
+
+        let ruleStack = UIStackView()
+        ruleStack.axis = .vertical
+        ruleStack.spacing = 8
+        ruleStack.translatesAutoresizingMaskIntoConstraints = false
+        ruleCard.addSubview(ruleStack)
+
+        let ruleTitle = UILabel()
+        ruleTitle.text = "Hoặc chuyển hướng theo từng máy chủ gốc:"
+        ruleTitle.font = .systemFont(ofSize: 14, weight: .semibold)
+        ruleTitle.textColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+        ruleStack.addArrangedSubview(ruleTitle)
+
+        ruleStack.addArrangedSubview(makeInput(label: "Máy chủ cũ (IP hoặc domain gốc):", field: oldIpField, placeholder: "27.0.14.73 hoặc nso1.teamobi.com"))
+        ruleStack.addArrangedSubview(makeInput(label: "Máy chủ mới (Đích thay thế):", field: newIpField, placeholder: "103.179.188.45"))
+        ruleStack.addArrangedSubview(makeInput(label: "Cổng đích:", field: portField, placeholder: "14444", isNumber: true))
+
+        let addRuleBtn = UIButton(type: .system)
+        addRuleBtn.setTitle("➕ Thêm quy tắc chuyển hướng", style: .default)
+        addRuleBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        addRuleBtn.addTarget(self, action: #selector(addRuleTapped), for: .touchUpInside)
+        ruleStack.addArrangedSubview(addRuleBtn)
 
         NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 14),
-            card.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
-            card.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
-            card.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -10),
+            globalCard.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 10),
+            globalCard.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
+            globalCard.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
 
-            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
-            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
-            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -14),
+            globalStack.topAnchor.constraint(equalTo: globalCard.topAnchor, constant: 12),
+            globalStack.leadingAnchor.constraint(equalTo: globalCard.leadingAnchor, constant: 12),
+            globalStack.trailingAnchor.constraint(equalTo: globalCard.trailingAnchor, constant: -12),
+            globalStack.bottomAnchor.constraint(equalTo: globalCard.bottomAnchor, constant: -12),
+
+            ruleCard.topAnchor.constraint(equalTo: globalCard.bottomAnchor, constant: 12),
+            ruleCard.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
+            ruleCard.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -16),
+            ruleCard.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -10),
+
+            ruleStack.topAnchor.constraint(equalTo: ruleCard.topAnchor, constant: 12),
+            ruleStack.leadingAnchor.constraint(equalTo: ruleCard.leadingAnchor, constant: 12),
+            ruleStack.trailingAnchor.constraint(equalTo: ruleCard.trailingAnchor, constant: -12),
+            ruleStack.bottomAnchor.constraint(equalTo: ruleCard.bottomAnchor, constant: -12),
 
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -121,26 +185,40 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         return v
     }
 
-    private func loadRules() {
-        if let saved = UserDefaults.standard.array(forKey: "decade_ip_rules") as? [[String: String]] {
+    private func loadSettings() {
+        let ud = UserDefaults.standard
+        globalSwitch.isOn = ud.bool(forKey: "decade_server_enabled")
+        globalHostField.text = ud.string(forKey: "decade_server_host") ?? ""
+        let port = ud.integer(forKey: "decade_server_port")
+        globalPortField.text = port > 0 ? "\(port)" : ""
+
+        if let saved = ud.array(forKey: "decade_ip_rules") as? [[String: String]] {
             rules = saved
         } else {
-            // Sample default for Ninja School
-            rules = [
-                ["old": "123.30.238.16", "new": "103.179.188.45", "port": "14444"]
-            ]
+            rules = []
         }
         tableView.reloadData()
+        DecadeChangeIpViewController.syncToNative()
     }
 
-    private func saveRules() {
-        UserDefaults.standard.set(rules, forKey: "decade_ip_rules")
+    @objc private func switchChanged() {
+        saveGlobalSettings()
+    }
+
+    @objc private func saveGlobalSettings() {
+        let ud = UserDefaults.standard
+        ud.set(globalSwitch.isOn, forKey: "decade_server_enabled")
+        ud.set(globalHostField.text?.trimmingCharacters(in: .whitespaces) ?? "", forKey: "decade_server_host")
+        let port = Int(globalPortField.text?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
+        ud.set(port, forKey: "decade_server_port")
+
+        DecadeChangeIpViewController.syncToNative()
     }
 
     @objc private func addRuleTapped() {
         guard let oldIp = oldIpField.text?.trimmingCharacters(in: .whitespaces), !oldIp.isEmpty,
               let newIp = newIpField.text?.trimmingCharacters(in: .whitespaces), !newIp.isEmpty else {
-            let alert = UIAlertController(title: "Lỗi", message: "Vui lòng nhập cả IP nguồn và IP đích", preferredStyle: .alert)
+            let alert = UIAlertController(title: "Lỗi", message: "Vui lòng nhập cả máy chủ cũ và máy chủ đích", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
             return
@@ -149,7 +227,9 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         let port = portField.text?.trimmingCharacters(in: .whitespaces) ?? ""
         let newRule = ["old": oldIp, "new": newIp, "port": port]
         rules.insert(newRule, at: 0)
-        saveRules()
+
+        UserDefaults.standard.set(rules, forKey: "decade_ip_rules")
+        DecadeChangeIpViewController.syncToNative()
 
         oldIpField.text = ""
         newIpField.text = ""
@@ -158,14 +238,39 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         tableView.reloadData()
     }
 
-    // ============================================================
-    // MARK: - TableView DataSource & Delegate
-    // ============================================================
+    // MARK: - Native Bridge Sync
+
+    static func syncToNative() {
+        let ud = UserDefaults.standard
+        let enabled = ud.bool(forKey: "decade_server_enabled")
+        let host = ud.string(forKey: "decade_server_host") ?? ""
+        let port = ud.integer(forKey: "decade_server_port")
+
+        host.withCString { hPtr in
+            jvm_bridge_set_server_override(enabled ? 1 : 0, hPtr, Int32(port))
+        }
+
+        jvm_bridge_clear_server_redirect_rules()
+
+        if let rules = ud.array(forKey: "decade_ip_rules") as? [[String: String]] {
+            for r in rules {
+                guard let old = r["old"], let new = r["new"] else { continue }
+                let rPort = Int32(r["port"] ?? "") ?? 0
+                old.withCString { oldPtr in
+                    new.withCString { newPtr in
+                        jvm_bridge_add_server_redirect_rule(oldPtr, newPtr, rPort)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - TableView
 
     func numberOfSections(in tableView: UITableView) -> Int { 1 }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return "Danh sách chuyển hướng IP đang áp dụng (\(rules.count))"
+        return "Quy tắc chuyển hướng cụ thể (\(rules.count))"
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -188,7 +293,6 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         cell.detailTextLabel?.text = port.isEmpty ? "Chuyển tiếp tất cả các cổng" : "Cổng đích: \(port)"
         cell.detailTextLabel?.textColor = .systemGray
 
-        cell.accessoryType = .none
         return cell
     }
 
@@ -197,7 +301,8 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             rules.remove(at: indexPath.row)
-            saveRules()
+            UserDefaults.standard.set(rules, forKey: "decade_ip_rules")
+            DecadeChangeIpViewController.syncToNative()
             tableView.deleteRows(at: [indexPath], with: .automatic)
         }
     }

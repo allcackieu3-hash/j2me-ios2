@@ -6,7 +6,7 @@
 //  - Proxy Storage & CRUD (SOCKS5 & HTTP with Auth)
 //  - Multi-line Bulk Import (ip:port:user:pass)
 //  - Real-time Connection Testing & Latency (ms) Measurement
-//  - Per-Tab Proxy Routing & Assignment
+//  - Per-Game-Tab Proxy Routing & Assignment (Matching ProxyConfig.java)
 //  - Immediate Socket Disconnect to trigger in-game reconnect
 //
 
@@ -63,10 +63,14 @@ class DecadeProxyManager {
     private(set) var proxies: [ProxyItem] = []
     private var nextId: Int = 1
 
+    // Route assignments: routeKey(appId, slot, tabPrefix) -> proxyId (Matching Android ProxyConfig)
+    private var tabAssignments: [String: Int] = [:]
+
     private init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         fileURL = docs.appendingPathComponent("decade_proxies.json")
         loadProxies()
+        loadAssignments()
     }
 
     // MARK: - Persistence
@@ -85,6 +89,18 @@ class DecadeProxyManager {
         if let data = try? JSONEncoder().encode(proxies) {
             try? data.write(to: fileURL, options: .atomic)
         }
+    }
+
+    private func loadAssignments() {
+        if let dict = UserDefaults.standard.dictionary(forKey: "decade_proxy_routes") as? [String: Int] {
+            tabAssignments = dict
+        } else {
+            tabAssignments = [:]
+        }
+    }
+
+    private func saveAssignments() {
+        UserDefaults.standard.set(tabAssignments, forKey: "decade_proxy_routes")
     }
 
     // MARK: - CRUD
@@ -123,15 +139,14 @@ class DecadeProxyManager {
         proxies.removeAll { $0.id == id }
         saveProxies()
 
-        // Remove from tab assignments
-        let ud = UserDefaults.standard
-        for slot in 0..<16 {
-            let key = "decade_tab_proxy_\(slot)"
-            if ud.integer(forKey: key) == id {
-                ud.removeObject(forKey: key)
-                applyProxy(to: slot)
-            }
-        }
+        // Remove proxy from all tab and screen route assignments
+        tabAssignments = tabAssignments.filter { $0.value != id }
+        saveAssignments()
+        syncAllToNative()
+    }
+
+    func findById(_ id: Int) -> ProxyItem? {
+        return proxies.first { $0.id == id }
     }
 
     // MARK: - Bulk Import
@@ -159,10 +174,6 @@ class DecadeProxyManager {
                 body = String(body.dropFirst(7))
             }
 
-            // Formats supported:
-            // 1. host:port
-            // 2. host:port:user:pass
-            // 3. user:pass@host:port
             var host = ""
             var port = 0
             var user = ""
@@ -270,52 +281,117 @@ class DecadeProxyManager {
         }
     }
 
-    // MARK: - Per-Tab Assignment
+    // MARK: - Per-Game-Tab Route Assignment (Matching ProxyConfig.java)
 
-    func getProxyId(for slot: Int) -> Int {
-        return UserDefaults.standard.integer(forKey: "decade_tab_proxy_\(slot)")
+    static func routeKey(appId: String, slot: Int, tabPrefix: String?) -> String {
+        let cleanApp = appId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let scope = (tabPrefix != nil && !tabPrefix!.isEmpty) ? tabPrefix! : "@screen"
+        return "\(cleanApp)\u{1F}\(slot)\u{1F}\(scope)"
     }
 
-    func getProxy(for slot: Int) -> ProxyItem? {
-        let pid = getProxyId(for: slot)
-        guard pid > 0 else { return nil }
-        return proxies.first { $0.id == pid }
-    }
-
-    func assignProxy(slot: Int, proxyId: Int?) {
-        let key = "decade_tab_proxy_\(slot)"
+    func assignScreen(appId: String, slot: Int, proxyId: Int?) {
+        let key = DecadeProxyManager.routeKey(appId: appId, slot: slot, tabPrefix: nil)
         if let pid = proxyId, pid > 0 {
-            UserDefaults.standard.set(pid, forKey: key)
+            tabAssignments[key] = pid
         } else {
-            UserDefaults.standard.removeObject(forKey: key)
+            tabAssignments.removeValue(forKey: key)
         }
-        applyProxy(to: slot)
+        saveAssignments()
+        syncToNative(appId: appId, slot: slot)
     }
 
-    func setProxyForSlot(_ slot: Int, proxy: ProxyItem?) {
-        assignProxy(slot: slot, proxyId: proxy?.id)
+    func proxyForScreen(appId: String, slot: Int) -> ProxyItem? {
+        let key = DecadeProxyManager.routeKey(appId: appId, slot: slot, tabPrefix: nil)
+        if let pid = tabAssignments[key], pid > 0 {
+            return findById(pid)
+        }
+        return nil
     }
 
-    func applyProxy(to slot: Int) {
-        if let proxy = getProxy(for: slot) {
-            let ptype: Int32 = proxy.isSocks5 ? 0 : 1
-            proxy.host.withCString { hCstr in
-                proxy.user.withCString { uCstr in
-                    proxy.pass.withCString { pCstr in
-                        jvm_bridge_set_slot_proxy(
-                            Int32(slot),
-                            ptype,
-                            hCstr,
-                            Int32(proxy.port),
-                            uCstr,
-                            pCstr
-                        )
+    func assignTab(appId: String, slot: Int, tabPrefix: String, proxyId: Int?) {
+        let key = DecadeProxyManager.routeKey(appId: appId, slot: slot, tabPrefix: tabPrefix)
+        if let pid = proxyId, pid > 0 {
+            tabAssignments[key] = pid
+        } else {
+            tabAssignments.removeValue(forKey: key)
+        }
+        saveAssignments()
+        syncToNative(appId: appId, slot: slot)
+    }
+
+    func assignTabs(appId: String, slot: Int, tabPrefixes: [String], proxyId: Int?) {
+        for prefix in tabPrefixes {
+            let key = DecadeProxyManager.routeKey(appId: appId, slot: slot, tabPrefix: prefix)
+            if let pid = proxyId, pid > 0 {
+                tabAssignments[key] = pid
+            } else {
+                tabAssignments.removeValue(forKey: key)
+            }
+        }
+        saveAssignments()
+        syncToNative(appId: appId, slot: slot)
+    }
+
+    func proxyForTab(appId: String, slot: Int, tabPrefix: String) -> ProxyItem? {
+        let key = DecadeProxyManager.routeKey(appId: appId, slot: slot, tabPrefix: tabPrefix)
+        if let pid = tabAssignments[key], pid > 0 {
+            return findById(pid)
+        }
+        return nil
+    }
+
+    func listAssignedRoutes() -> [String: Int] {
+        return tabAssignments
+    }
+
+    // MARK: - Native Bridge Synchronization
+
+    func syncToNative(appId: String, slot: Int) {
+        guard slot >= 0 && slot < 16 else { return }
+
+        // 1. Clear existing tab rules for slot
+        jvm_bridge_clear_tab_proxies(Int32(slot))
+
+        // 2. Set screen default proxy
+        if let sp = proxyForScreen(appId: appId, slot: slot) {
+            let ptype: Int32 = sp.isSocks5 ? 0 : 1
+            sp.host.withCString { hPtr in
+                sp.user.withCString { uPtr in
+                    sp.pass.withCString { pPtr in
+                        jvm_bridge_set_slot_proxy(Int32(slot), ptype, hPtr, Int32(sp.port), uPtr, pPtr)
                     }
                 }
             }
         } else {
-            // Direct connection
-            jvm_bridge_set_slot_proxy(Int32(slot), -1, nil, 0, nil, nil)
+            jvm_bridge_set_slot_proxy(Int32(slot), -1, "", 0, "", "")
+        }
+
+        // 3. Set tab-specific proxies
+        for (k, pid) in tabAssignments {
+            let parts = k.components(separatedBy: "\u{1F}")
+            guard parts.count == 3, parts[0] == appId, Int(parts[1]) == slot else { continue }
+            let prefix = parts[2]
+            if prefix != "@screen", let tp = findById(pid) {
+                let ptype: Int32 = tp.isSocks5 ? 0 : 1
+                prefix.withCString { prefPtr in
+                    tp.host.withCString { hPtr in
+                        tp.user.withCString { uPtr in
+                            tp.pass.withCString { pPtr in
+                                jvm_bridge_set_tab_proxy(Int32(slot), prefPtr, ptype, hPtr, Int32(tp.port), uPtr, pPtr)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func syncAllToNative() {
+        for slot in 0..<16 {
+            let appId = (activeGameViewController != nil && slot < activeGameViewController!.tabSessions.count)
+                ? activeGameViewController!.tabSessions[slot].appName
+                : "Game"
+            syncToNative(appId: appId, slot: slot)
         }
     }
 

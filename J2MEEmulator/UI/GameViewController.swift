@@ -638,6 +638,8 @@ class GameViewController: UIViewController {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else { return }
                 guard let resRoot = Bundle.main.resourcePath else { return }
+                DecadeProxyManager.shared.syncToNative(appId: appName, slot: newSlot)
+                DecadeChangeIpViewController.syncToNative()
                 let initResult = jvm_bridge_init_slot(
                     Int32(newSlot),
                     resRoot,
@@ -807,14 +809,14 @@ class GameViewController: UIViewController {
             self.showToast(message: self.isAutoCleanRam ? "Đã bật tự động dọn RAM" : "Đã tắt tự động dọn RAM")
         })
 
-        // 8. Thêm proxy (chuẩn APK action_proxy_add)
-        alert.addAction(UIAlertAction(title: "🌐 Thêm proxy", style: .default) { [weak self] _ in
-            self?.openProxyManager()
+        // 8. Quản lý Proxy (chuẩn APK action_proxy_add)
+        alert.addAction(UIAlertAction(title: "🌐 Quản lý Proxy", style: .default) { [weak self] _ in
+            self?.openProxyManager(segment: 0)
         })
 
-        // 9. Gán proxy cho tab (chuẩn APK action_proxy_assign)
-        alert.addAction(UIAlertAction(title: "📑 Gán proxy cho tab \(self.activeTabIndex + 1)", style: .default) { [weak self] _ in
-            self?.promptAssignProxyForCurrentTab()
+        // 9. Gán proxy cho từng tab game (chuẩn APK action_proxy_assign)
+        alert.addAction(UIAlertAction(title: "📑 Gán proxy cho từng tab game", style: .default) { [weak self] _ in
+            self?.openProxyManager(segment: 1)
         })
 
         // 10. Giới hạn FPS
@@ -829,7 +831,7 @@ class GameViewController: UIViewController {
 
         // 12. Thay IP Phiên Bản
         alert.addAction(UIAlertAction(title: "🔄 Thay IP Phiên Bản", style: .default) { [weak self] _ in
-            self?.promptChangeServerIP()
+            self?.openChangeIpDialog()
         })
 
         // 13. Nhập văn bản (IME)
@@ -945,9 +947,17 @@ class GameViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func openProxyManager() {
+    private func openProxyManager(segment: Int = 0) {
         let proxyVC = DecadeProxyViewController()
+        proxyVC.initialSegmentIndex = segment
         let nav = UINavigationController(rootViewController: proxyVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
+    }
+
+    private func openChangeIpDialog() {
+        let changeIpVC = DecadeChangeIpViewController()
+        let nav = UINavigationController(rootViewController: changeIpVC)
         nav.modalPresentationStyle = .pageSheet
         present(nav, animated: true)
     }
@@ -1286,16 +1296,7 @@ class GameViewController: UIViewController {
 
     // Thay IP Phiên Bản
     private func promptChangeServerIP() {
-        let alert = UIAlertController(title: "Thay IP Phiên Bản", message: "Nhập IP hoặc domain server mong muốn:", preferredStyle: .alert)
-        alert.addTextField { tf in
-            tf.placeholder = "Ví dụ: 103.179.189.15 hoặc server.nso.vn"
-            tf.keyboardType = .numbersAndPunctuation
-        }
-        alert.addAction(UIAlertAction(title: "Lưu & Áp dụng", style: .default) { [weak self] _ in
-            self?.showToast(message: "Đã lưu IP phiên bản mới")
-        })
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        present(alert, animated: true)
+        openChangeIpDialog()
     }
 
     // ============================================================
@@ -1543,6 +1544,9 @@ class GameViewController: UIViewController {
                                                        with: "_", options: .regularExpression)
         let saveRoot = docs + "/Games Data/" + gameId
         try? FileManager.default.createDirectory(atPath: saveRoot, withIntermediateDirectories: true)
+
+        DecadeProxyManager.shared.syncToNative(appId: appName, slot: 0)
+        DecadeChangeIpViewController.syncToNative()
 
         let initResult = jvm_bridge_init(resRoot, saveRoot, jarPath,
                                          Int32(canvasWidth),

@@ -59,18 +59,43 @@ int jvm_bridge_is_slot_stop_requested(int slot);
 int jvm_bridge_is_slot_running(int slot);
 
 // ============================================================
-// Per-slot proxy configuration (SOCKS5 / HTTP)
+// Per-slot & Per-tab proxy configuration (SOCKS5 / HTTP)
 // ============================================================
 
-/// Configure proxy for a slot.
+/// Configure screen default proxy for a slot.
 /// @param type 0 = SOCKS5, 1 = HTTP CONNECT, -1 = DIRECT (no proxy)
 void jvm_bridge_set_slot_proxy(int slot, int type, const char *host, int port, const char *user, const char *pass);
 
-/// Get configured proxy for a slot. Returns 1 if proxy is active, 0 if direct.
+/// Get configured screen default proxy for a slot. Returns 1 if proxy is active, 0 if direct.
 int jvm_bridge_get_slot_proxy(int slot, int *out_type, char *out_host, int host_len, int *out_port, char *out_user, int user_len, char *out_pass, int pass_len);
+
+/// Configure tab-specific proxy for an internal game tab (prefix e.g. "a", "b", "1").
+void jvm_bridge_set_tab_proxy(int slot, const char *tab_prefix, int type, const char *host, int port, const char *user, const char *pass);
+
+/// Get tab-specific proxy. Returns 1 if found, 0 if not configured.
+int jvm_bridge_get_tab_proxy(int slot, const char *tab_prefix, int *out_type, char *out_host, int host_len, int *out_port, char *out_user, int user_len, char *out_pass, int pass_len);
+
+/// Clear all tab-specific proxies for a slot.
+void jvm_bridge_clear_tab_proxies(int slot);
 
 /// Forcibly disconnect active network sockets for a slot (to reconnect over new proxy).
 void jvm_bridge_disconnect_slot_sockets(int slot);
+
+// ============================================================
+// Server Destination Override ("Thay IP Phiên Bản")
+// ============================================================
+
+/// Set global server destination override (changes game server target IP & Port).
+void jvm_bridge_set_server_override(int enabled, const char *host, int port);
+
+/// Add a specific server redirection rule (e.g. old_ip: "27.0.14.73" -> new_ip: "103.179.188.45", port: 14444).
+void jvm_bridge_add_server_redirect_rule(const char *old_ip, const char *new_ip, int port);
+
+/// Clear all specific server redirection rules.
+void jvm_bridge_clear_server_redirect_rules(void);
+
+/// Resolve effective destination host and port. Returns 1 if redirected, 0 if unchanged.
+int jvm_bridge_resolve_server_destination(const char *in_host, const char *in_port, char *out_host, int out_host_len, char *out_port, int out_port_len);
 
 // ============================================================
 // Backward compatibility wrappers (default to slot 0)

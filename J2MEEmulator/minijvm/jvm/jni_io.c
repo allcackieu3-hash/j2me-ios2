@@ -373,7 +373,7 @@ s32 org_mini_net_SocketNative_connect0(Runtime *runtime, JClass *clazz) {
         memcpy(&vmsock->hostname, host->arr_body, hostlen);//copy with 0
         memcpy(&vmsock->hostport, port->arr_body, port->arr_length);
         jthread_block_enter(runtime);
-        ret = decade_proxy_connect(runtime->jvm, ctx, (const char *)host->arr_body, (const char *)port->arr_body, proto);
+        ret = decade_proxy_connect(runtime, ctx, (const char *)host->arr_body, (const char *)port->arr_body, proto);
         jthread_block_exit(runtime);
 #if _JVM_DEBUG_LOG_LEVEL > 5
         invoke_deepth(runtime);

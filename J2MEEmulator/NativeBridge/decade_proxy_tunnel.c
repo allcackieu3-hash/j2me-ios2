@@ -1,5 +1,7 @@
 #include "decade_proxy_tunnel.h"
 #include "jvm_bridge.h"
+#include "jvm.h"
+#include "jvm_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,26 +74,91 @@ void decade_proxy_disconnect_slot_sockets(int slot) {
     pthread_mutex_unlock(&g_sock_lock);
 }
 
-int decade_proxy_connect(void *jvm, mbedtls_net_context *ctx, const char *target_host, const char *target_port, int proto) {
-    int slot = jvm_bridge_get_jvm_slot(jvm);
+int decade_proxy_connect(void *runtime_or_jvm, mbedtls_net_context *ctx, const char *target_host, const char *target_port, int proto) {
+    // 1. Resolve server destination override ("Thay IP Phiên Bản") FIRST
+    char eff_host[256] = {0};
+    char eff_port[16] = {0};
+    jvm_bridge_resolve_server_destination(target_host, target_port, eff_host, sizeof(eff_host), eff_port, sizeof(eff_port));
+
+    // 2. Extract slot and tab prefix from Runtime or MiniJVM
+    int slot = 0;
+    char tab_prefix[64] = {0};
+
+    Runtime *runtime = (Runtime *)runtime_or_jvm;
+    if (runtime && runtime->jvm) {
+        slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+
+        // Walk call stack to extract game class prefix (TabResolver matching APK 1:1)
+        Runtime *r = runtime;
+        while (r) {
+            if (r->clazz && r->clazz->name) {
+                const char *cname = utf8_cstr(r->clazz->name);
+                if (cname &&
+                    strncmp(cname, "java/", 5) != 0 &&
+                    strncmp(cname, "javax/", 6) != 0 &&
+                    strncmp(cname, "org/microemu/", 13) != 0 &&
+                    strncmp(cname, "org/mini/", 9) != 0 &&
+                    strncmp(cname, "com/sun/", 8) != 0) {
+
+                    // e.g. "a/bs" -> prefix is "a"
+                    // "b/GameScr" -> prefix is "b"
+                    const char *slash = strchr(cname, '/');
+                    if (slash) {
+                        int len = (int)(slash - cname);
+                        if (len > 0 && len < (int)sizeof(tab_prefix)) {
+                            strncpy(tab_prefix, cname, len);
+                            tab_prefix[len] = '\0';
+                        }
+                    } else {
+                        // Class in default package, e.g. "bs"
+                        strncpy(tab_prefix, cname, sizeof(tab_prefix) - 1);
+                    }
+                    break;
+                }
+            }
+            r = r->parent;
+        }
+    } else {
+        slot = jvm_bridge_get_jvm_slot(runtime_or_jvm);
+    }
+
     int ptype = DECADE_PROXY_TYPE_DIRECT;
     char phost[256] = {0};
     int pport = 0;
     char puser[128] = {0};
     char ppass[128] = {0};
 
-    int has_proxy = jvm_bridge_get_slot_proxy(slot, &ptype, phost, sizeof(phost), &pport, puser, sizeof(puser), ppass, sizeof(ppass));
+    // Priority 1: Check for Tab-specific proxy
+    int has_proxy = 0;
+    if (tab_prefix[0] != '\0') {
+        has_proxy = jvm_bridge_get_tab_proxy(slot, tab_prefix, &ptype, phost, sizeof(phost), &pport, puser, sizeof(puser), ppass, sizeof(ppass));
+        if (has_proxy) {
+            printf("[ProxyTunnel] Slot %d, Tab prefix '%s' -> using TAB PROXY %s:%d (type=%d)\n",
+                   slot, tab_prefix, phost, pport, ptype);
+        }
+    }
+
+    // Priority 2: Fallback to Screen default proxy
+    if (!has_proxy) {
+        has_proxy = jvm_bridge_get_slot_proxy(slot, &ptype, phost, sizeof(phost), &pport, puser, sizeof(puser), ppass, sizeof(ppass));
+        if (has_proxy) {
+            printf("[ProxyTunnel] Slot %d, Tab prefix '%s' -> fallback to SCREEN PROXY %s:%d (type=%d)\n",
+                   slot, tab_prefix, phost, pport, ptype);
+        }
+    }
+
     if (!has_proxy || ptype < 0 || pport <= 0 || phost[0] == '\0') {
-        // Direct connection without proxy
-        int ret = mbedtls_net_connect(ctx, target_host, target_port, proto);
+        // Direct connection without proxy to eff_host:eff_port
+        printf("[ProxyTunnel] Slot %d, Tab prefix '%s' -> DIRECT CONNECT to %s:%s\n", slot, tab_prefix, eff_host, eff_port);
+        int ret = mbedtls_net_connect(ctx, eff_host, eff_port, proto);
         if (ret == 0 && ctx->fd >= 0) {
             decade_proxy_track_socket(slot, ctx->fd);
         }
         return ret;
     }
 
-    printf("[ProxyTunnel] Slot %d routing to %s:%s via proxy %s:%d (type=%d)\n",
-           slot, target_host, target_port, phost, pport, ptype);
+    printf("[ProxyTunnel] Slot %d, Tab '%s' routing to %s:%s via proxy %s:%d (type=%d)\n",
+           slot, tab_prefix, eff_host, eff_port, phost, pport, ptype);
 
     char pport_str[16];
     snprintf(pport_str, sizeof(pport_str), "%d", pport);
@@ -166,11 +233,11 @@ int decade_proxy_connect(void *jvm, mbedtls_net_context *ctx, const char *target
         cmd[cpos++] = 0x01; // CMD: CONNECT
         cmd[cpos++] = 0x00; // RSV
         cmd[cpos++] = 0x03; // ATYP: DOMAINNAME
-        int dlen = (int)strlen(target_host);
+        int dlen = (int)strlen(eff_host);
         if (dlen > 255) dlen = 255;
         cmd[cpos++] = (unsigned char)dlen;
-        memcpy(cmd + cpos, target_host, dlen); cpos += dlen;
-        int tport = atoi(target_port);
+        memcpy(cmd + cpos, eff_host, dlen); cpos += dlen;
+        int tport = atoi(eff_port);
         cmd[cpos++] = (unsigned char)((tport >> 8) & 0xFF);
         cmd[cpos++] = (unsigned char)(tport & 0xFF);
 
@@ -202,7 +269,7 @@ int decade_proxy_connect(void *jvm, mbedtls_net_context *ctx, const char *target
         setsockopt(ctx->fd, SOL_SOCKET, SO_SNDTIMEO, &zero_tv, sizeof(zero_tv));
 
         decade_proxy_track_socket(slot, ctx->fd);
-        printf("[ProxyTunnel] SOCKS5 tunnel established successfully to %s:%s\n", target_host, target_port);
+        printf("[ProxyTunnel] SOCKS5 tunnel established successfully to %s:%s\n", eff_host, eff_port);
         return 0;
 
     } else if (ptype == DECADE_PROXY_TYPE_HTTP) {
@@ -218,13 +285,13 @@ int decade_proxy_connect(void *jvm, mbedtls_net_context *ctx, const char *target
                      "Host: %s:%s\r\n"
                      "Proxy-Authorization: Basic %s\r\n"
                      "Proxy-Connection: keep-alive\r\n\r\n",
-                     target_host, target_port, target_host, target_port, auth_b64);
+                     eff_host, eff_port, eff_host, eff_port, auth_b64);
         } else {
             snprintf(req, sizeof(req),
                      "CONNECT %s:%s HTTP/1.1\r\n"
                      "Host: %s:%s\r\n"
                      "Proxy-Connection: keep-alive\r\n\r\n",
-                     target_host, target_port, target_host, target_port);
+                     eff_host, eff_port, eff_host, eff_port);
         }
 
         int req_len = (int)strlen(req);
@@ -249,7 +316,7 @@ int decade_proxy_connect(void *jvm, mbedtls_net_context *ctx, const char *target
             setsockopt(ctx->fd, SOL_SOCKET, SO_SNDTIMEO, &zero_tv, sizeof(zero_tv));
 
             decade_proxy_track_socket(slot, ctx->fd);
-            printf("[ProxyTunnel] HTTP CONNECT tunnel established to %s:%s\n", target_host, target_port);
+            printf("[ProxyTunnel] HTTP CONNECT tunnel established to %s:%s\n", eff_host, eff_port);
             return 0;
         }
 
