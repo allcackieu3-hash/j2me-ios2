@@ -85,9 +85,9 @@ class GameViewController: UIViewController {
         var icon: UIImage?
         var screenshot: UIImage?
     }
-    private var tabSessions: [TabSession] = []
-    private var tabButtons: [UIButton] = []
-    private var activeTabIndex: Int = 0
+    var tabSessions: [TabSession] = []
+    var tabButtons: [UIButton] = []
+    var activeTabIndex: Int = 0
 
     // Quick floating unhide keypad button
     private let floatingShowKeypadBtn = UIButton(type: .system)

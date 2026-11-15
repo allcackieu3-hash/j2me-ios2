@@ -136,6 +136,10 @@ class DecadeProxyManager {
 
     // MARK: - Bulk Import
 
+    func importBulk(text: String) -> Int {
+        return importProxies(text: text)
+    }
+
     func importProxies(text: String, defaultType: String = "socks5") -> Int {
         let lines = text.components(separatedBy: .newlines)
         var count = 0
@@ -286,6 +290,10 @@ class DecadeProxyManager {
             UserDefaults.standard.removeObject(forKey: key)
         }
         applyProxy(to: slot)
+    }
+
+    func setProxyForSlot(_ slot: Int, proxy: ProxyItem?) {
+        assignProxy(slot: slot, proxyId: proxy?.id)
     }
 
     func applyProxy(to slot: Int) {
