@@ -233,6 +233,18 @@ class GameViewController: UIViewController {
 
         // 3. Virtual Keypad at bottom
         let keypad = DecadeKeypadView()
+        let gid = appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
+        let savedLayout = UserDefaults.standard.object(forKey: "keypad_layout_\(gid)") as? Int ?? 0
+        if savedLayout == 1 {
+            keypad.currentLayout = .combined
+        } else if savedLayout == 2 {
+            keypad.currentLayout = .numpad
+        } else {
+            keypad.currentLayout = .arrows
+        }
+        let savedAlpha = UserDefaults.standard.object(forKey: "keypad_alpha_\(gid)") as? Float ?? 64.0
+        keypad.keypadAlphaValue = CGFloat(savedAlpha / 255.0)
+
         keypad.translatesAutoresizingMaskIntoConstraints = false
         self.decadeKeypadView = keypad
         view.addSubview(keypad)

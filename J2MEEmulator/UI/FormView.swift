@@ -284,10 +284,13 @@ class FormView: UIView {
         ])
     }
 
+    private var commands: [(label: String, id: Int32, type: Int32)] = []
+
     func buildFromNativeData() {
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         commandBar.arrangedSubviews.forEach { $0.removeFromSuperview() }
         commandButtons.removeAll()
+        commands.removeAll()
 
         let count = j2me_ui_get_form_item_count()
         for i in 0..<count {
@@ -309,18 +312,66 @@ class FormView: UIView {
         for i in 0..<cmdCount {
             let cmdLabel = String(cString: j2me_ui_get_command_label(Int32(i)))
             let cmdId = j2me_ui_get_command_id(Int32(i))
-
-            let btn = UIButton(type: .system)
-            btn.setTitle(cmdLabel, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
-            btn.tag = Int(cmdId)
-            btn.backgroundColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
-            btn.setTitleColor(.white, for: .normal)
-            btn.layer.cornerRadius = 6
-            btn.addTarget(self, action: #selector(commandTapped(_:)), for: .touchUpInside)
-            commandBar.addArrangedSubview(btn)
-            commandButtons.append(btn)
+            let cmdType = j2me_ui_get_command_type(Int32(i))
+            commands.append((label: cmdLabel, id: cmdId, type: cmdType))
         }
+
+        if commands.isEmpty {
+            // Default Cancel/Back
+            let rightBtn = makeRedButton(title: "QUAY LẠI", tag: 0)
+            commandBar.addArrangedSubview(UIView()) // spacer
+            commandBar.addArrangedSubview(rightBtn)
+        } else if commands.count <= 2 {
+            let leftBtn = makeRedButton(title: commands[0].label.uppercased(), tag: Int(commands[0].id))
+            commandBar.addArrangedSubview(leftBtn)
+            if commands.count == 2 {
+                commandBar.addArrangedSubview(UIView()) // spacer
+                let rightBtn = makeRedButton(title: commands[1].label.uppercased(), tag: Int(commands[1].id))
+                commandBar.addArrangedSubview(rightBtn)
+            }
+        } else {
+            // > 2 commands: Left is MENU, Right is Back/Exit command
+            let menuBtn = makeRedButton(title: "MENU", tag: -1)
+            menuBtn.addTarget(self, action: #selector(showFormMenu(_:)), for: .touchUpInside)
+            commandBar.addArrangedSubview(menuBtn)
+            commandBar.addArrangedSubview(UIView()) // spacer
+
+            let exitCmd = commands.first {
+                let l = $0.label.lowercased()
+                return $0.type == 7 || $0.type == 2 || l.contains("thoát") || l.contains("quay lại") || l.contains("back") || l.contains("hủy")
+            } ?? commands.last!
+            let rightBtn = makeRedButton(title: exitCmd.label.uppercased(), tag: Int(exitCmd.id))
+            commandBar.addArrangedSubview(rightBtn)
+        }
+    }
+
+    private func makeRedButton(title: String, tag: Int) -> UIButton {
+        let btn = UIButton(type: .system)
+        btn.setTitle(title, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        btn.setTitleColor(UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0), for: .normal)
+        btn.tag = tag
+        if tag >= 0 {
+            btn.addTarget(self, action: #selector(commandTapped(_:)), for: .touchUpInside)
+        }
+        return btn
+    }
+
+    @objc private func showFormMenu(_ sender: UIButton) {
+        guard let parentVC = self.window?.rootViewController else { return }
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        for cmd in commands {
+            alert.addAction(UIAlertAction(title: cmd.label, style: .default) { [weak self] _ in
+                self?.endEditing(true)
+                j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmd.id)
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = sender
+            popover.sourceRect = sender.bounds
+        }
+        parentVC.present(alert, animated: true)
     }
 
     private func addStringItem(label: String, text: String) {
@@ -399,6 +450,8 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
     private var selectedRow: Int = 0
     private let bottomButtonBar = UIStackView()
 
+    private var commands: [(label: String, id: Int32, type: Int32)] = []
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
@@ -418,9 +471,13 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         tableView.separatorColor = UIColor(white: 0.88, alpha: 1.0)
         tableView.separatorInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         tableView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Long press on list item opens context menu matching Android Decade (Screenshot 2)
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleTableLongPress(_:)))
+        tableView.addGestureRecognizer(longPress)
         addSubview(tableView)
 
-        // Bottom Softkeys: Red MENU and Red THOÁT matching Screenshot 2 & 3
+        // Bottom Softkeys: Red MENU and Red THOÁT matching Screenshot 1 & 2
         bottomButtonBar.axis = .horizontal
         bottomButtonBar.distribution = .equalSpacing
         bottomButtonBar.alignment = .center
@@ -455,6 +512,7 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
 
     func buildFromNativeData() {
         items.removeAll()
+        commands.removeAll()
         let count = j2me_ui_get_list_item_count()
         for i in 0..<count {
             items.append(String(cString: j2me_ui_get_list_item(Int32(i))))
@@ -462,23 +520,41 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         selectedRow = 0
         tableView.reloadData()
 
+        let cmdCount = j2me_ui_get_command_count()
+        for i in 0..<cmdCount {
+            let cmdLabel = String(cString: j2me_ui_get_command_label(Int32(i)))
+            let cmdId = j2me_ui_get_command_id(Int32(i))
+            let cmdType = j2me_ui_get_command_type(Int32(i))
+            commands.append((label: cmdLabel, id: cmdId, type: cmdType))
+        }
+
         // Rebuild bottom red buttons (MENU / THOÁT)
         bottomButtonBar.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        let cmdCount = j2me_ui_get_command_count()
-        if cmdCount == 0 {
-            // Default Menu / Thoát buttons
-            let leftBtn = makeRedButton(title: "MENU", tag: 0)
+        if commands.isEmpty {
+            let leftBtn = makeRedButton(title: "MENU", tag: -1)
             let rightBtn = makeRedButton(title: "THOÁT", tag: 1)
             bottomButtonBar.addArrangedSubview(leftBtn)
             bottomButtonBar.addArrangedSubview(rightBtn)
-        } else {
-            for i in 0..<cmdCount {
-                let cmdLabel = String(cString: j2me_ui_get_command_label(Int32(i)))
-                let cmdId = j2me_ui_get_command_id(Int32(i))
-                let btn = makeRedButton(title: cmdLabel.uppercased(), tag: Int(cmdId))
-                bottomButtonBar.addArrangedSubview(btn)
+        } else if commands.count <= 2 {
+            let leftBtn = makeRedButton(title: commands[0].label.uppercased(), tag: Int(commands[0].id))
+            bottomButtonBar.addArrangedSubview(leftBtn)
+            if commands.count == 2 {
+                let rightBtn = makeRedButton(title: commands[1].label.uppercased(), tag: Int(commands[1].id))
+                bottomButtonBar.addArrangedSubview(rightBtn)
             }
+        } else {
+            // > 2 commands: Left button is "MENU" which opens popup menu (Screenshot 2), Right is "THOÁT"
+            let menuBtn = makeRedButton(title: "MENU", tag: -1)
+            menuBtn.addTarget(self, action: #selector(menuButtonTapped(_:)), for: .touchUpInside)
+            bottomButtonBar.addArrangedSubview(menuBtn)
+
+            let exitCmd = commands.first {
+                let l = $0.label.lowercased()
+                return $0.type == 7 || $0.type == 2 || l.contains("thoát") || l.contains("back") || l.contains("quay lại")
+            } ?? commands.last!
+            let exitBtn = makeRedButton(title: exitCmd.label.uppercased(), tag: Int(exitCmd.id))
+            bottomButtonBar.addArrangedSubview(exitBtn)
         }
     }
 
@@ -488,8 +564,50 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
         btn.setTitleColor(UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0), for: .normal) // Red #E53935
         btn.tag = tag
-        btn.addTarget(self, action: #selector(commandTapped(_:)), for: .touchUpInside)
+        if tag >= 0 {
+            btn.addTarget(self, action: #selector(commandTapped(_:)), for: .touchUpInside)
+        }
         return btn
+    }
+
+    @objc private func menuButtonTapped(_ sender: UIButton) {
+        showListPopupMenu(sourceView: sender)
+    }
+
+    @objc private func handleTableLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        let point = gesture.location(in: tableView)
+        if let indexPath = tableView.indexPathForRow(at: point) {
+            selectedRow = indexPath.row
+            tableView.reloadData()
+            let cell = tableView.cellForRow(at: indexPath)
+            showListPopupMenu(sourceView: cell ?? tableView)
+        }
+    }
+
+    private func showListPopupMenu(sourceView: UIView) {
+        guard let parentVC = self.window?.rootViewController else { return }
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+        // Show commands matching Screenshot 2: "Chạy ứng dụng", "Dừng ứng dụng", "Cài đặt cơ bản", etc.
+        let displayCmds = commands.filter {
+            let l = $0.label.lowercased()
+            return !l.contains("thoát")
+        }
+
+        let cmdList = displayCmds.isEmpty ? commands : displayCmds
+        for cmd in cmdList {
+            alert.addAction(UIAlertAction(title: cmd.label, style: .default) { _ in
+                j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmd.id)
+            })
+        }
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = sourceView
+            popover.sourceRect = sourceView.bounds
+        }
+        parentVC.present(alert, animated: true)
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

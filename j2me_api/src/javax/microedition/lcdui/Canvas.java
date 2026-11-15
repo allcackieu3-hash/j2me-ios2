@@ -90,6 +90,7 @@ public abstract class Canvas extends Displayable {
     }
 
     public void repaint(int x, int y, int w, int h) {
+        if (!isShown()) return;
         limitFps();
         if (!repaintPending) {
             // First repaint request — set clip to this rect
@@ -119,6 +120,7 @@ public abstract class Canvas extends Displayable {
      * to ensure serialized access (matching J2ME-Loader behavior).
      */
     public void serviceRepaints() {
+        if (!isShown()) return;
         if (repaintPending) {
             doPaint();
         }
@@ -148,6 +150,7 @@ public abstract class Canvas extends Displayable {
     // GameCanvas — copy offscreen buffer to Canvas context and flush to screen.
     // Synchronized on paintLock to prevent concurrent CGContext access.
     public void flushBuffer(Image image, int x, int y, int width, int height) {
+        if (!isShown()) return;
         limitFps();
         if (width <= 0 || height <= 0 ||
                 x + width < 0 || y + height < 0 ||
@@ -164,6 +167,7 @@ public abstract class Canvas extends Displayable {
 
     // ExtendedImage (Siemens) — copy image to Canvas context at position and flush.
     public void flushBuffer(Image image, int x, int y) {
+        if (!isShown()) return;
         limitFps();
         synchronized (paintLock) {
             if (nativeContext == 0) initContext();
@@ -179,6 +183,7 @@ public abstract class Canvas extends Displayable {
      * from Display event loop thread and game thread.
      */
     public void doPaint() {
+        if (!isShown()) return;
         synchronized (paintLock) {
             if (nativeContext == 0) initContext();
             repaintPending = false;

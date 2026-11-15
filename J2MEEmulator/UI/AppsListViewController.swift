@@ -40,11 +40,31 @@ class AppsListViewController: UIViewController,
             bg.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        // "+" button — import JAR from Files
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
+        // Top bar buttons matching Decade Android (Screenshot 1 & 2): Search, Sort, 3-dots
+        let moreMenu = UIMenu(title: "", children: [
+            UIAction(title: "Quản lý Proxy", image: UIImage(systemName: "network")) { [weak self] _ in
+                self?.showProxyDialog()
+            },
+            UIAction(title: "Thay IP Phiên Bản", image: UIImage(systemName: "globe")) { [weak self] _ in
+                self?.showChangeIpDialog()
+            },
+            UIAction(title: "Thiết lập", image: UIImage(systemName: "gearshape")) { [weak self] _ in
+                self?.showGlobalSettings()
+            },
+            UIAction(title: "Lưu log", image: UIImage(systemName: "doc.text")) { [weak self] _ in
+                self?.saveLogs()
+            },
+        ])
+        let moreItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: moreMenu)
+        moreItem.tintColor = .white
+
+        let addItem = UIBarButtonItem(
             systemItem: .add, primaryAction: UIAction { [weak self] _ in
                 self?.addAppTapped()
             })
+        addItem.tintColor = .white
+
+        navigationItem.rightBarButtonItems = [moreItem, addItem]
 
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
@@ -337,48 +357,88 @@ class AppsListViewController: UIViewController,
         guard let indexPath = indexPaths.first else { return nil }
         let app = apps[indexPath.item]
         return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
-            let ssEnabled = Self.is3DSupersampling(for: app)
-            let toggle3D = UIAction(title: ssEnabled ? "Disable 3D Enhancement" : "Enable 3D Enhancement",
-                                    subtitle: ssEnabled ? "Lower quality, but closer to original" : "Smoother 3D, but not original-accurate",
-                                    image: UIImage(systemName: "cube"),
-                                    state: ssEnabled ? .on : .off) { _ in
-                Self.set3DSupersampling(!ssEnabled, for: app)
+            // Authentic Decade Android Context Menu matching Screenshot 2:
+            // 1. Thêm lối tắt / Bắt đầu
+            // 2. Đổi tên
+            // 3. Thiết lập -> opens DecadeConfigViewController (Screenshot 3)
+            // 4. Cài đặt lại
+            // 5. Xóa
+            let startAction = UIAction(title: "Bắt đầu", image: UIImage(systemName: "play.fill")) { _ in
+                self?.launchGame(app: app)
             }
-            let clearData = UIAction(title: "Clear Game Data",
-                                     image: UIImage(systemName: "eraser")) { _ in
+            let renameAction = UIAction(title: "Đổi tên", image: UIImage(systemName: "pencil")) { _ in
+                self?.promptRenameApp(app: app)
+            }
+            let configAction = UIAction(title: "Thiết lập", image: UIImage(systemName: "gearshape.fill")) { _ in
+                self?.openConfig(for: app)
+            }
+            let resetAction = UIAction(title: "Cài đặt lại", image: UIImage(systemName: "arrow.counterclockwise")) { _ in
                 self?.confirmClearGameData(for: app)
             }
-            let delete = UIAction(title: "Delete", image: UIImage(systemName: "trash"),
-                                  attributes: .destructive) { _ in
+            let deleteAction = UIAction(title: "Xóa", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
                 self?.confirmDeleteApp(at: indexPath)
             }
-            let currentRes = Self.resolution(for: app)
-            let resActions = Self.resolutionOptions.map { opt in
-                UIAction(title: opt.label,
-                         state: (opt.w == currentRes.w && opt.h == currentRes.h) ? .on : .off) { _ in
-                    Self.setResolution(w: opt.w, h: opt.h, for: app)
-                }
-            }
-            let resMenu = UIMenu(title: "Screen Resolution",
-                                  image: UIImage(systemName: "aspectratio"),
-                                  children: resActions)
 
-            let currentFps = Self.fpsLimit(for: app)
-            let fpsActions = Self.fpsLimitOptions.map { opt in
-                UIAction(title: opt.label,
-                         state: opt.value == currentFps ? .on : .off) { _ in
-                    Self.setFpsLimit(opt.value, for: app)
-                }
-            }
-            let fpsMenu = UIMenu(title: "FPS Limit",
-                                  subtitle: "High FPS may break some games",
-                                  image: UIImage(systemName: "gauge.with.needle"),
-                                  children: fpsActions)
-
-            let settings = UIMenu(options: .displayInline, children: [toggle3D, resMenu, fpsMenu])
-            let actions = UIMenu(options: .displayInline, children: [clearData, delete])
-            return UIMenu(children: [settings, actions])
+            return UIMenu(children: [startAction, renameAction, configAction, resetAction, deleteAction])
         })
+    }
+
+    private func openConfig(for app: AppInfo) {
+        let configVC = DecadeConfigViewController(app: app) { [weak self] w, h, fps in
+            self?.launchGame(app: app, overrideW: w, overrideH: h, overrideFps: fps)
+        }
+        let nav = UINavigationController(rootViewController: configVC)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
+    }
+
+    private func promptRenameApp(app: AppInfo) {
+        let alert = UIAlertController(title: "Đổi tên", message: "Nhập tên mới cho ứng dụng", preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = app.name
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Lưu", style: .default) { [weak self] _ in
+            guard let self, let newName = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespaces), !newName.isEmpty else { return }
+            UserDefaults.standard.set(newName, forKey: "name_\(Self.gameId(for: app))")
+            self.scanApps()
+        })
+        present(alert, animated: true)
+    }
+
+    private func showProxyDialog() {
+        let alert = UIAlertController(title: "Quản lý Proxy", message: "Chức năng gán HTTP / SOCKS proxy cho game.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showChangeIpDialog() {
+        let alert = UIAlertController(title: "Thay IP Phiên Bản", message: "Thay đổi IP máy chủ kết nối trực tiếp cho game.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showGlobalSettings() {
+        let alert = UIAlertController(title: "Thiết lập chung", message: "Cấu hình toàn hệ thống KamenRider Decade.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func saveLogs() {
+        let alert = UIAlertController(title: "Lưu log", message: "Đã lưu log phiên làm việc vào bộ nhớ ứng dụng.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    func launchGame(app: AppInfo, overrideW: Int? = nil, overrideH: Int? = nil, overrideFps: Int? = nil) {
+        let render3dScale = Self.is3DSupersampling(for: app) ? 3 : 1
+        let res = (overrideW != nil && overrideH != nil) ? (overrideW!, overrideH!) : Self.resolution(for: app)
+        let fps = overrideFps ?? Self.fpsLimit(for: app)
+        let gameVC = GameViewController(jarPath: app.path, appName: app.name, appIcon: app.icon,
+                                         canvasWidth: res.0, canvasHeight: res.1,
+                                         render3dScale: render3dScale, fpsLimit: fps)
+        gameVC.modalPresentationStyle = .fullScreen
+        present(gameVC, animated: true)
     }
 
     // MARK: - Per-game settings

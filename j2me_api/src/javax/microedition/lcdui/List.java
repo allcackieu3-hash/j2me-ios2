@@ -34,20 +34,29 @@ public class List extends Screen implements Choice {
         images.add(imagePart);
         selected.add(Boolean.FALSE);
         if (selectedIndex < 0 && listType == EXCLUSIVE) selectedIndex = 0;
+        if (isShown()) showNative();
         return strings.size() - 1;
     }
 
-    public void delete(int elementNum) { strings.remove(elementNum); images.remove(elementNum); selected.remove(elementNum); }
-    public void deleteAll() { strings.clear(); images.clear(); selected.clear(); selectedIndex = -1; }
+    public void delete(int elementNum) {
+        strings.remove(elementNum); images.remove(elementNum); selected.remove(elementNum);
+        if (isShown()) showNative();
+    }
+    public void deleteAll() {
+        strings.clear(); images.clear(); selected.clear(); selectedIndex = -1;
+        if (isShown()) showNative();
+    }
     public int getSelectedIndex() { return selectedIndex; }
     public String getString(int elementNum) { return strings.get(elementNum); }
     public Image getImage(int elementNum) { return images.get(elementNum); }
     public void insert(int elementNum, String stringPart, Image imagePart) {
         strings.add(elementNum, stringPart); images.add(elementNum, imagePart); selected.add(elementNum, Boolean.FALSE);
+        if (isShown()) showNative();
     }
     public boolean isSelected(int elementNum) { return selected.get(elementNum); }
     public void set(int elementNum, String stringPart, Image imagePart) {
         strings.set(elementNum, stringPart); images.set(elementNum, imagePart);
+        if (isShown()) showNative();
     }
     public void setSelectedIndex(int elementNum, boolean sel) {
         if (listType == EXCLUSIVE) { for (int i = 0; i < selected.size(); i++) selected.set(i, Boolean.FALSE); }
