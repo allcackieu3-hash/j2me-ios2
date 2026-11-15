@@ -12,6 +12,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreHaptics/CoreHaptics.h>
 #include "j2me_render.h"
+#include "jvm_bridge.h"
 #include "jvm.h"
 #include "jvm_util.h"
 #include <stdio.h>
@@ -57,6 +58,7 @@ typedef struct RenderImage {
 } RenderImage;
 
 static j2me_flush_callback g_flush_callback = NULL;
+static j2me_slot_flush_callback g_slot_flush_callback = NULL;
 static CGColorSpaceRef g_colorSpace = NULL;
 
 // Set by jvm_bridge before native cleanup. All acquire functions
@@ -233,6 +235,10 @@ void j2me_render_set_flush_callback(j2me_flush_callback callback) {
     g_flush_callback = callback;
 }
 
+void j2me_render_set_slot_flush_callback(j2me_slot_flush_callback callback) {
+    g_slot_flush_callback = callback;
+}
+
 // ============================================================
 // Helper
 // ============================================================
@@ -372,9 +378,20 @@ static s32 n_flushToScreen(Runtime *runtime, JClass *clazz) {
     JniEnv *env = runtime->jnienv;
     s64 handle = env->localvar_getLong_2slot(runtime->localvar, 0);
     RenderContext *rc = rc_acquire(handle);
-    if (rc && g_flush_callback) {
+    if (rc && (g_flush_callback || g_slot_flush_callback)) {
         CGImageRef image = CGBitmapContextCreateImage(rc->ctx);
-        g_flush_callback(image, rc->width, rc->height);
+        int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+
+        if (g_slot_flush_callback) {
+            CFRetain(image);
+            g_slot_flush_callback(slot, image, rc->width, rc->height);
+        }
+
+        if (g_flush_callback && slot == jvm_bridge_get_focused_slot()) {
+            g_flush_callback(image, rc->width, rc->height);
+        } else {
+            CGImageRelease(image);
+        }
     }
     rc_release(rc);
     return RUNTIME_STATUS_NORMAL;

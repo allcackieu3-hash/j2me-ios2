@@ -87,8 +87,15 @@ void j2me_input_post_key(int type, int keyCode) {
 
 static s32 n_pollInputEvent(Runtime *runtime, JClass *clazz) {
     JniEnv *env = runtime->jnienv;
-    InputEvent evt;
 
+    // Only the currently focused slot consumes input events from the UI
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) {
+        env->push_ref(runtime->stack, NULL);
+        return RUNTIME_STATUS_NORMAL;
+    }
+
+    InputEvent evt;
     if (!dequeue_event(&evt)) {
         env->push_ref(runtime->stack, NULL);
         return RUNTIME_STATUS_NORMAL;
@@ -120,7 +127,8 @@ static s32 n_pollInputEvent(Runtime *runtime, JClass *clazz) {
 // ============================================================
 
 static s32 n_isStopRequested(Runtime *runtime, JClass *clazz) {
-    push_int(runtime->stack, jvm_bridge_is_stop_requested() ? 1 : 0);
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    push_int(runtime->stack, jvm_bridge_is_slot_stop_requested(slot) ? 1 : 0);
     return RUNTIME_STATUS_NORMAL;
 }
 

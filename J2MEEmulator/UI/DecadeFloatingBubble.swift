@@ -17,6 +17,7 @@ final class DecadeFloatingBubble: UIView {
     var onToggleTreo: (() -> Void)?
     var onToggleHeadless: (() -> Void)?
     var onSelectTabPrompt: (() -> Void)?
+    var onTogglePiP: (() -> Void)?
 
     private let iconImageView = UIImageView()
     private let badgeLabel = UILabel()
@@ -309,10 +310,10 @@ final class DecadeFloatingBubble: UIView {
 
         let isTreo = DecadeBackgroundKeeper.shared.isTreoActive
         let btnGame = makeAssistiveItem(icon: "🎮", title: "Mở game", tag: 1)
-        let btnTreo = makeAssistiveItem(icon: isTreo ? "✓🌙" : "🌙", title: "Treo tắt màn", tag: 2, isActive: isTreo)
+        let btnPiP = makeAssistiveItem(icon: "📺", title: "Bóng ngoài", tag: 7, isActive: DecadePiPManager.shared.isPiPActive)
         let btnProxy = makeAssistiveItem(icon: "🌐", title: "Gán proxy", tag: 3)
         row1.addArrangedSubview(btnGame)
-        row1.addArrangedSubview(btnTreo)
+        row1.addArrangedSubview(btnPiP)
         row1.addArrangedSubview(btnProxy)
 
         let row2 = UIStackView()
@@ -321,10 +322,10 @@ final class DecadeFloatingBubble: UIView {
         row2.spacing = 8
 
         let btnTabs = makeAssistiveItem(icon: "📋", title: "Đổi tab", tag: 4)
-        let btnPower = makeAssistiveItem(icon: "⚡", title: "Tiết kiệm pin", tag: 5)
+        let btnTreo = makeAssistiveItem(icon: isTreo ? "✓🌙" : "🌙", title: "Treo tắt màn", tag: 2, isActive: isTreo)
         let btnClose = makeAssistiveItem(icon: "✕", title: "Đóng bóng", tag: 6, isDestructive: true)
         row2.addArrangedSubview(btnTabs)
-        row2.addArrangedSubview(btnPower)
+        row2.addArrangedSubview(btnTreo)
         row2.addArrangedSubview(btnClose)
 
         contentStack.addArrangedSubview(row1)
@@ -428,6 +429,8 @@ final class DecadeFloatingBubble: UIView {
                 self.onToggleHeadless?()
             case 6:
                 self.hide()
+            case 7:
+                self.onTogglePiP?()
             default:
                 break
             }

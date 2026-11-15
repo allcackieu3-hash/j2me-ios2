@@ -64,6 +64,8 @@ extern "C" {
 
 #include "ssl_client.h"
 #include "../utils/https/mbedtls/include/mbedtls/net_sockets.h"
+#include "decade_proxy_tunnel.h"
+#include "jvm_bridge.h"
 
 #if __JVM_OS_MINGW__
 
@@ -371,7 +373,7 @@ s32 org_mini_net_SocketNative_connect0(Runtime *runtime, JClass *clazz) {
         memcpy(&vmsock->hostname, host->arr_body, hostlen);//copy with 0
         memcpy(&vmsock->hostport, port->arr_body, port->arr_length);
         jthread_block_enter(runtime);
-        ret = mbedtls_net_connect(ctx, host->arr_body, port->arr_body, proto);
+        ret = decade_proxy_connect(runtime->jvm, ctx, (const char *)host->arr_body, (const char *)port->arr_body, proto);
         jthread_block_exit(runtime);
 #if _JVM_DEBUG_LOG_LEVEL > 5
         invoke_deepth(runtime);
@@ -532,6 +534,9 @@ s32 org_mini_net_SocketNative_close0(Runtime *runtime, JClass *clazz) {
     Instance *vmarr = localvar_getRefer(runtime->localvar, 0);
     VmSock *vmsock = (VmSock *) vmarr->arr_body;
     mbedtls_net_context *ctx = &vmsock->contex;
+    if (ctx && ctx->fd >= 0) {
+        decade_proxy_untrack_socket(jvm_bridge_get_jvm_slot(runtime->jvm), ctx->fd);
+    }
     mbedtls_net_free(ctx);
 #if _JVM_DEBUG_LOG_LEVEL > 5
     invoke_deepth(runtime);

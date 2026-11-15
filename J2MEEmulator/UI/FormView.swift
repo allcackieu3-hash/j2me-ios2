@@ -10,10 +10,7 @@ import UIKit
 
 extension UIView {
     var topMostPresentedViewController: UIViewController? {
-        if let gvc = activeGameViewController {
-            return gvc
-        }
-        var top = self.window?.rootViewController
+        var top: UIViewController? = activeGameViewController ?? self.window?.rootViewController
         while let presented = top?.presentedViewController {
             top = presented
         }
@@ -806,7 +803,7 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         if let indexPath = tableView.indexPathForRow(at: point) {
             selectedRow = indexPath.row
             tableView.reloadData()
-            j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(indexPath.row))
+            j2me_input_post_key(Int32(J2ME_UI_LIST_SET_INDEX), Int32(indexPath.row)) // select without triggering selectCommand
             let cell = tableView.cellForRow(at: indexPath)
             showListPopupMenu(sourceView: cell ?? tableView)
         }
@@ -826,7 +823,8 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         for cmd in cmdList {
             alert.addAction(UIAlertAction(title: cmd.label, style: .default) { [weak self] _ in
                 guard let self = self else { return }
-                j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(self.selectedRow))
+                // Set selected index first, then fire the chosen command
+                j2me_input_post_key(Int32(J2ME_UI_LIST_SET_INDEX), Int32(self.selectedRow))
                 j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmd.id)
             })
         }
@@ -875,7 +873,8 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         selectedRow = indexPath.row
         tableView.reloadData()
-        j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(indexPath.row))
+        // Highlight row in J2ME List without automatically launching or jumping to game canvas
+        j2me_input_post_key(Int32(J2ME_UI_LIST_SET_INDEX), Int32(indexPath.row))
     }
 
     @objc private func commandTapped(_ sender: UIButton) {

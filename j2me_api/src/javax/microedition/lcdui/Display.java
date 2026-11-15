@@ -150,50 +150,57 @@ public class Display {
             // 1. Poll native input events and post to EventQueue
             int[] nativeEvent;
             while ((nativeEvent = NativeBridge.pollInputEvent()) != null) {
-                int type = nativeEvent[0];
-                if (type <= 2 && current instanceof Canvas) {
-                    // Pointer event → post CanvasEvent
-                    Canvas c = (Canvas) current;
-                    int ceType = type == 0 ? CanvasEvent.POINTER_PRESSED :
-                                 type == 1 ? CanvasEvent.POINTER_DRAGGED : CanvasEvent.POINTER_RELEASED;
-                    Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, 0, (float)nativeEvent[1], (float)nativeEvent[2]));
-                } else if (type >= 3 && type <= 5 && current instanceof Canvas) {
-                    // Key event → post CanvasEvent
-                    Canvas c = (Canvas) current;
-                    int ceType = type == 3 ? CanvasEvent.KEY_PRESSED :
-                                 type == 4 ? CanvasEvent.KEY_RELEASED : CanvasEvent.KEY_REPEATED;
-                    Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, nativeEvent[3]));
-                } else if (type == 10) {
-                    int cmdId = nativeEvent[3];
-                    if (current instanceof Form) {
-                        try {
-                            ((Form) current).syncFromNative();
-                        } catch (Throwable t) {
-                            System.out.println("[Display] Error syncing Form text: " + t);
-                        }
-                    }
-                    if (current instanceof TextBox) {
-                        try {
-                            String txt = NativeBridge.getTextBoxText();
-                            if (txt != null) {
-                                ((TextBox) current).setString(txt);
+                try {
+                    int type = nativeEvent[0];
+                    if (type <= 2 && current instanceof Canvas) {
+                        // Pointer event → post CanvasEvent
+                        Canvas c = (Canvas) current;
+                        int ceType = type == 0 ? CanvasEvent.POINTER_PRESSED :
+                                     type == 1 ? CanvasEvent.POINTER_DRAGGED : CanvasEvent.POINTER_RELEASED;
+                        Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, 0, (float)nativeEvent[1], (float)nativeEvent[2]));
+                    } else if (type >= 3 && type <= 5 && current instanceof Canvas) {
+                        // Key event → post CanvasEvent
+                        Canvas c = (Canvas) current;
+                        int ceType = type == 3 ? CanvasEvent.KEY_PRESSED :
+                                     type == 4 ? CanvasEvent.KEY_RELEASED : CanvasEvent.KEY_REPEATED;
+                        Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, nativeEvent[3]));
+                    } else if (type == 10) {
+                        int cmdId = nativeEvent[3];
+                        if (current instanceof Form) {
+                            try {
+                                ((Form) current).syncFromNative();
+                            } catch (Throwable t) {
+                                System.out.println("[Display] Error syncing Form text: " + t);
                             }
-                        } catch (Throwable t) {
-                            System.out.println("[Display] Error reading TextBox text: " + t);
                         }
-                    } else if (current instanceof Form) {
-                        try {
-                            ((Form) current).syncFromNative();
-                        } catch (Throwable t) {
-                            System.out.println("[Display] Error syncing Form: " + t);
+                        if (current instanceof TextBox) {
+                            try {
+                                String txt = NativeBridge.getTextBoxText();
+                                if (txt != null) {
+                                    ((TextBox) current).setString(txt);
+                                }
+                            } catch (Throwable t) {
+                                System.out.println("[Display] Error reading TextBox text: " + t);
+                            }
+                        } else if (current instanceof Form) {
+                            try {
+                                ((Form) current).syncFromNative();
+                            } catch (Throwable t) {
+                                System.out.println("[Display] Error syncing Form: " + t);
+                            }
                         }
+                        if (current != null) current.fireCommandAction(cmdId);
+                    } else if (type == 11 && current instanceof List) {
+                        ((List) current).handleListSelect(nativeEvent[3]);
+                    } else if (type == 12 && current instanceof Alert) {
+                        Alert alert = (Alert) current;
+                        if (alert.nextDisplayable != null) setCurrent(alert.nextDisplayable);
+                    } else if (type == 13 && current instanceof List) {
+                        ((List) current).setSelectedIndex(nativeEvent[3], true);
                     }
-                    if (current != null) current.fireCommandAction(cmdId);
-                } else if (type == 11 && current instanceof List) {
-                    ((List) current).handleListSelect(nativeEvent[3]);
-                } else if (type == 12 && current instanceof Alert) {
-                    Alert alert = (Alert) current;
-                    if (alert.nextDisplayable != null) setCurrent(alert.nextDisplayable);
+                } catch (Throwable t) {
+                    System.out.println("[Display] Error handling input event: " + t);
+                    t.printStackTrace();
                 }
             }
 

@@ -141,6 +141,9 @@ class GameViewController: UIViewController {
         emulatorView.canvasWidth = canvasWidth
         emulatorView.canvasHeight = canvasHeight
 
+        // Attach PiP background display layer for SpringBoard floating window
+        DecadePiPManager.shared.attachDisplayLayer(to: emulatorView)
+
         switch layoutMode {
         case .decade:
             setupDecadeLayout()
@@ -397,12 +400,96 @@ class GameViewController: UIViewController {
         tabBtn.tag = index
         tabBtn.addTarget(self, action: #selector(tabButtonTapped(_:)), for: .touchUpInside)
 
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(tabButtonLongPressed(_:)))
+        tabBtn.addGestureRecognizer(longPress)
+
         tabStrip.addArrangedSubview(tabBtn)
         tabButtons.append(tabBtn)
     }
 
     @objc private func tabButtonTapped(_ sender: UIButton) {
         selectTab(at: sender.tag)
+    }
+
+    @objc private func tabButtonLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, let btn = gesture.view as? UIButton else { return }
+        let slot = btn.tag
+        let appName = (slot < tabSessions.count) ? tabSessions[slot].appName : "Game"
+
+        let sheet = UIAlertController(
+            title: "Tùy chọn Tab \(slot + 1): \(appName)",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "🌐 Gắn Proxy cho Tab \(slot + 1)", style: .default) { [weak self] _ in
+            self?.showProxyPickerForSlot(slot)
+        })
+
+        if slot > 0 {
+            sheet.addAction(UIAlertAction(title: "❌ Đóng Tab \(slot + 1)", style: .destructive) { [weak self] _ in
+                self?.closeTab(at: slot)
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = btn
+            popover.sourceRect = btn.bounds
+        }
+        present(sheet, animated: true)
+    }
+
+    private func showProxyPickerForSlot(_ slot: Int) {
+        let proxies = DecadeProxyManager.shared.proxies
+        let sheet = UIAlertController(
+            title: "Chọn Proxy cho Tab \(slot + 1)",
+            message: "Proxy đã chọn sẽ tự động kết nối ngầm cho Tab này:",
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "🚫 Không dùng proxy", style: .default) { [weak self] _ in
+            DecadeProxyManager.shared.setProxyForSlot(slot, proxy: nil)
+            self?.showToast(message: "Tab \(slot + 1): Đã tắt proxy")
+        })
+
+        for p in proxies {
+            sheet.addAction(UIAlertAction(title: "⚡ \(p.displayTitle) (\(p.type.uppercased()))", style: .default) { [weak self] _ in
+                DecadeProxyManager.shared.setProxyForSlot(slot, proxy: p)
+                self?.showToast(message: "Tab \(slot + 1): Đã gắn proxy \(p.displayTitle)")
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            if slot < tabButtons.count {
+                popover.sourceView = tabButtons[slot]
+                popover.sourceRect = tabButtons[slot].bounds
+            }
+        }
+        present(sheet, animated: true)
+    }
+
+    private func closeTab(at index: Int) {
+        guard index > 0 && index < tabButtons.count else { return }
+        jvm_bridge_request_stop_slot(Int32(index))
+        jvm_bridge_destroy_slot(Int32(index))
+
+        let btn = tabButtons[index]
+        btn.removeFromSuperview()
+        tabButtons.remove(at: index)
+        if index < tabSessions.count {
+            tabSessions.remove(at: index)
+        }
+
+        for (i, b) in tabButtons.enumerated() {
+            b.tag = i
+            b.setTitle("\(i + 1)", for: .normal)
+        }
+
+        let newActive = min(activeTabIndex, tabButtons.count - 1)
+        selectTab(at: newActive)
+        showToast(message: "Đã đóng Tab \(index + 1)")
     }
 
     private func selectTab(at index: Int) {
@@ -415,6 +502,9 @@ class GameViewController: UIViewController {
 
         activeTabIndex = index
         let session = (index < tabSessions.count) ? tabSessions[index] : tabSessions.first!
+
+        // Switch focused slot in JVM bridge (switches display rendering & input routing)
+        jvm_bridge_set_focused_slot(Int32(index))
 
         // Dynamically update save root for data isolation (-tabN)
         session.saveRoot.withCString { cstr in
@@ -438,9 +528,6 @@ class GameViewController: UIViewController {
         let targetBtn = tabButtons[index]
         tabScrollView.scrollRectToVisible(targetBtn.frame, animated: true)
 
-        // Inform J2ME engine / AngelChip about the slot selection
-        j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(index))
-
         // Update floating bubble info
         DecadeFloatingBubble.shared.setGameInfo(
             name: session.appName,
@@ -453,6 +540,11 @@ class GameViewController: UIViewController {
 
     private func addNewTab(jarPath: String, appName: String, icon: UIImage) {
         let newSlot = tabButtons.count
+        guard newSlot < 32 else {
+            showToast(message: "Đã đạt tối đa 32 tab")
+            return
+        }
+
         let gid = appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.path
 
@@ -478,7 +570,36 @@ class GameViewController: UIViewController {
         )
         tabSessions.append(session)
         createTabButton(index: newSlot)
-        selectTab(at: newSlot)
+
+        if newSlot == 0 {
+            selectTab(at: 0)
+        } else {
+            // Real Multi-Tab Execution: Launch independent MiniJVM instance for newSlot!
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                guard let resRoot = Bundle.main.resourcePath else { return }
+                let initResult = jvm_bridge_init_slot(
+                    Int32(newSlot),
+                    resRoot,
+                    saveRoot,
+                    jarPath,
+                    Int32(self.canvasWidth),
+                    Int32(self.canvasHeight),
+                    Int32(self.render3dScale),
+                    Int32(self.fpsLimit)
+                )
+                guard initResult == 0 else {
+                    print("[Swift] ERROR: Slot \(newSlot) JVM init failed with code \(initResult)")
+                    return
+                }
+                print("[Swift] Slot \(newSlot) MiniJVM running midlet: \(jarPath)")
+                let runResult = jvm_bridge_run_midlet_slot(Int32(newSlot), jarPath)
+                print("[Swift] Slot \(newSlot) MiniJVM completed with code \(runResult)")
+                jvm_bridge_destroy_slot(Int32(newSlot))
+            }
+
+            selectTab(at: newSlot)
+        }
 
         let folderName = URL(fileURLWithPath: saveRoot).lastPathComponent
         showToast(message: "Đã thêm Tab \(newSlot + 1): \(appName)\n(Thư mục data: \(folderName))")
@@ -570,6 +691,10 @@ class GameViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
         present(alert, animated: true)
+    }
+
+    func captureScreenshot() -> UIImage? {
+        return takeSnapshot()
     }
 
     private func takeSnapshot() -> UIImage? {
@@ -749,6 +874,9 @@ class GameViewController: UIViewController {
         }
         DecadeFloatingBubble.shared.onSelectTabPrompt = { [weak self] in
             self?.promptSelectTabFromAssistive()
+        }
+        DecadeFloatingBubble.shared.onTogglePiP = {
+            DecadePiPManager.shared.togglePiP()
         }
         DecadeFloatingBubble.shared.show(in: view.window)
 

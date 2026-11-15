@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 #include "j2me_ui.h"
 #include "j2me_input.h"
+#include "jvm_bridge.h"
 #include "jvm.h"
 #include "jvm_util.h"
 #include <stdio.h>
@@ -219,8 +220,14 @@ static s32 n_formAddCommand(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_formShow(Runtime *runtime, JClass *clazz) {
-    printf("[J2ME UI] formShow: type=%d title='%s' items=%d commands=%d\n",
-           g_form_type, g_form_title, g_form_item_count, g_form_command_count);
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) {
+        // UI for background slots is not presented on screen
+        return RUNTIME_STATUS_NORMAL;
+    }
+
+    printf("[J2ME UI] formShow (slot %d): type=%d title='%s' items=%d commands=%d\n",
+           slot, g_form_type, g_form_title, g_form_item_count, g_form_command_count);
     if (g_ui_callback) {
         int action;
         switch (g_form_type) {
@@ -236,7 +243,12 @@ static s32 n_formShow(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_showCanvas(Runtime *runtime, JClass *clazz) {
-    printf("[J2ME UI] showCanvas\n");
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) {
+        return RUNTIME_STATUS_NORMAL;
+    }
+
+    printf("[J2ME UI] showCanvas (slot %d)\n", slot);
     if (g_ui_callback) {
         g_ui_callback(J2ME_UI_ACTION_SHOW_CANVAS, NULL);
     }

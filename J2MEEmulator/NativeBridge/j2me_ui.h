@@ -11,6 +11,7 @@ extern "C" {
 #define J2ME_UI_COMMAND_ACTION   10
 #define J2ME_UI_LIST_SELECT      11
 #define J2ME_UI_ALERT_DISMISSED  12
+#define J2ME_UI_LIST_SET_INDEX   13
 
 /// Register UI-related native methods with the JVM.
 void j2me_ui_reg_natives(MiniJVM *jvm);
