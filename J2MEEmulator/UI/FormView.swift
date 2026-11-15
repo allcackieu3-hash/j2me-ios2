@@ -8,6 +8,19 @@
 
 import UIKit
 
+extension UIView {
+    var topMostPresentedViewController: UIViewController? {
+        if let gvc = activeGameViewController {
+            return gvc
+        }
+        var top = self.window?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
+    }
+}
+
 // ============================================================
 // MARK: - J2METextBoxView (Authentic Decade Full-screen In-Game Text Input)
 // ============================================================
