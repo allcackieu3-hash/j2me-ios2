@@ -178,14 +178,7 @@ public class Image {
         Image img = createImage(width, height);
         Graphics g = img.getGraphics();
         g.drawRGB(rgb, 0, width, 0, 0, width, height, processAlpha);
-        if (rgb != null) {
-            for (int p : rgb) {
-                if ((p & 0x00FFFFFF) == 0x00FF00) {
-                    img.isRunningIcon = true;
-                    break;
-                }
-            }
-        }
+        img.isRunningIcon = true;
         return img;
     }
 

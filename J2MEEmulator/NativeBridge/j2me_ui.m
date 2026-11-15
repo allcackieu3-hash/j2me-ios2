@@ -110,6 +110,11 @@ void j2me_ui_set_form_item_text(int index, const char *text) {
 // ============================================================
 
 static s32 n_formBegin(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) {
+        return RUNTIME_STATUS_NORMAL;
+    }
+
     JniEnv *env = runtime->jnienv;
     Instance *jtitle = env->localvar_getRefer(runtime->localvar, 0);
     s32 type = env->localvar_getInt(runtime->localvar, 1);
@@ -131,6 +136,9 @@ static s32 n_formBegin(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_formAddStringItem(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     Instance *jlabel = env->localvar_getRefer(runtime->localvar, 0);
     Instance *jtext = env->localvar_getRefer(runtime->localvar, 1);
@@ -163,6 +171,9 @@ static s32 n_formAddStringItem(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_formAddTextField(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     Instance *jlabel = env->localvar_getRefer(runtime->localvar, 0);
     Instance *jtext = env->localvar_getRefer(runtime->localvar, 1);
@@ -197,6 +208,9 @@ static s32 n_formAddTextField(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_formAddCommand(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     Instance *jlabel = env->localvar_getRefer(runtime->localvar, 0);
     s32 cmdType = env->localvar_getInt(runtime->localvar, 1);
@@ -256,6 +270,9 @@ static s32 n_showCanvas(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_listAddItem(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     Instance *jtext = env->localvar_getRefer(runtime->localvar, 0);
 
@@ -272,12 +289,18 @@ static s32 n_listAddItem(Runtime *runtime, JClass *clazz) {
 }
 
 static s32 n_setListType(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     g_list_type = env->localvar_getInt(runtime->localvar, 0);
     return RUNTIME_STATUS_NORMAL;
 }
 
 static s32 n_setAlertText(Runtime *runtime, JClass *clazz) {
+    int slot = jvm_bridge_get_jvm_slot(runtime->jvm);
+    if (slot != jvm_bridge_get_focused_slot()) return RUNTIME_STATUS_NORMAL;
+
     JniEnv *env = runtime->jnienv;
     Instance *jtext = env->localvar_getRefer(runtime->localvar, 0);
     s32 timeout = env->localvar_getInt(runtime->localvar, 1);

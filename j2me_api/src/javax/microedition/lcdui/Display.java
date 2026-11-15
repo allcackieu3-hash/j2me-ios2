@@ -12,6 +12,7 @@ import javax.microedition.midlet.MIDlet;
  */
 public class Display {
     private static Display instance;
+    private static volatile boolean isHandlingCommandAction = false;
     private Displayable current;
     private volatile boolean running;
     private static final EventQueue eventQueue = new EventQueue();
@@ -45,11 +46,14 @@ public class Display {
         if (d == null) return;
         Displayable old = current;
 
-        // If the user is actively viewing/editing a Form (e.g. "Cài đặt cơ bản") or TextBox,
-        // do not let a background game thread call setCurrent(Canvas) to interrupt the Form!
-        if ((old instanceof Form || old instanceof TextBox) && d instanceof Canvas) {
-            System.out.println("[Display] Ignored background setCurrent(Canvas) while user is viewing Form/TextBox");
-            return;
+        // If the user is actively viewing/editing a Form, TextBox, or List,
+        // do not let a background game thread call setCurrent(Canvas) to interrupt the user UI!
+        // ONLY allow switching to Canvas if triggered by user interaction (e.g. tapping "Quay lại" or selecting a list item).
+        if ((current instanceof Form || current instanceof TextBox || current instanceof List) && (d instanceof Canvas)) {
+            if (!isHandlingCommandAction) {
+                System.out.println("[Display] Blocked background setCurrent(Canvas) while user UI is active: " + current);
+                return;
+            }
         }
 
         current = d;
@@ -174,13 +178,6 @@ public class Display {
                         Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, nativeEvent[3]));
                     } else if (type == 10) {
                         int cmdId = nativeEvent[3];
-                        if (current instanceof Form) {
-                            try {
-                                ((Form) current).syncFromNative();
-                            } catch (Throwable t) {
-                                System.out.println("[Display] Error syncing Form text: " + t);
-                            }
-                        }
                         if (current instanceof TextBox) {
                             try {
                                 String txt = NativeBridge.getTextBoxText();
@@ -194,12 +191,22 @@ public class Display {
                             try {
                                 ((Form) current).syncFromNative();
                             } catch (Throwable t) {
-                                System.out.println("[Display] Error syncing Form: " + t);
+                                System.out.println("[Display] Error syncing Form text: " + t);
                             }
                         }
-                        if (current != null) current.fireCommandAction(cmdId);
+                        isHandlingCommandAction = true;
+                        try {
+                            if (current != null) current.fireCommandAction(cmdId);
+                        } finally {
+                            isHandlingCommandAction = false;
+                        }
                     } else if (type == 11 && current instanceof List) {
-                        ((List) current).handleListSelect(nativeEvent[3]);
+                        isHandlingCommandAction = true;
+                        try {
+                            ((List) current).handleListSelect(nativeEvent[3]);
+                        } finally {
+                            isHandlingCommandAction = false;
+                        }
                     } else if (type == 12 && current instanceof Alert) {
                         Alert alert = (Alert) current;
                         if (alert.nextDisplayable != null) setCurrent(alert.nextDisplayable);

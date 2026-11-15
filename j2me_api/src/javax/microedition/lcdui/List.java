@@ -60,7 +60,12 @@ public class List extends Screen implements Choice {
     }
     public boolean isSelected(int elementNum) { return selected.get(elementNum); }
     public void set(int elementNum, String stringPart, Image imagePart) {
-        strings.set(elementNum, stringPart); images.set(elementNum, imagePart);
+        if (elementNum >= 0 && elementNum < strings.size()) {
+            strings.set(elementNum, stringPart);
+        }
+        if (elementNum >= 0 && elementNum < images.size()) {
+            images.set(elementNum, imagePart);
+        }
         if (isShown()) showNative();
     }
     public void setSelectedIndex(int elementNum, boolean sel) {

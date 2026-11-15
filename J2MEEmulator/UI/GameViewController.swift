@@ -531,8 +531,13 @@ class GameViewController: UIViewController {
             jvm_bridge_set_save_root(cstr)
         }
 
-        // Update top bar title
-        titleLabel.text = "\(session.appName) (Tab \(index + 1))"
+        // Update top bar title & current session info
+        titleLabel.text = session.appName
+        appName = session.appName
+        currentAppPath = session.jarPath
+        if let icon = session.icon {
+            appIcon = icon
+        }
 
         for (i, btn) in tabButtons.enumerated() {
             if i == index {
@@ -1400,7 +1405,8 @@ class GameViewController: UIViewController {
     // ============================================================
 
     func showCanvasView() {
-        titleLabel.text = appName
+        let currentTabName = (activeTabIndex < tabSessions.count) ? tabSessions[activeTabIndex].appName : appName
+        titleLabel.text = currentTabName
         emulatorView.isHidden = false
         decadeKeypadView?.isHidden = isKeypadHidden
         floatingShowKeypadBtn.isHidden = !isKeypadHidden
