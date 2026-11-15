@@ -163,6 +163,13 @@ public class Display {
                     Display.eventQueue.postEvent(CanvasEvent.getInstance(c, ceType, nativeEvent[3]));
                 } else if (type == 10) {
                     int cmdId = nativeEvent[3];
+                    if (current instanceof Form) {
+                        try {
+                            ((Form) current).syncFromNative();
+                        } catch (Throwable t) {
+                            System.out.println("[Display] Error syncing Form text: " + t);
+                        }
+                    }
                     if (current instanceof TextBox) {
                         try {
                             String txt = NativeBridge.getTextBoxText();

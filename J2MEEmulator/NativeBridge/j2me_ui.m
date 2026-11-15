@@ -96,6 +96,13 @@ int j2me_ui_get_list_type(void) { return g_list_type; }
 const char *j2me_ui_get_alert_text(void) { return g_alert_text; }
 int j2me_ui_get_alert_timeout(void) { return g_alert_timeout; }
 
+void j2me_ui_set_form_item_text(int index, const char *text) {
+    if (index >= 0 && index < g_form_item_count && text) {
+        strncpy(g_form_items[index].text, text, sizeof(g_form_items[index].text) - 1);
+        g_form_items[index].text[sizeof(g_form_items[index].text) - 1] = '\0';
+    }
+}
+
 // ============================================================
 // Native methods — called from Java to build UI
 // ============================================================
@@ -316,6 +323,18 @@ static s32 n_setTextBoxText(Runtime *runtime, JClass *clazz) {
     return RUNTIME_STATUS_NORMAL;
 }
 
+static s32 n_getFormItemText(Runtime *runtime, JClass *clazz) {
+    JniEnv *env = runtime->jnienv;
+    s32 index = env->localvar_getInt(runtime->localvar, 0);
+    if (index >= 0 && index < g_form_item_count) {
+        Instance *jstr = env->jstring_create_cstr(g_form_items[index].text, runtime);
+        env->push_ref(runtime->stack, jstr);
+    } else {
+        env->push_ref(runtime->stack, NULL);
+    }
+    return RUNTIME_STATUS_NORMAL;
+}
+
 // ============================================================
 // Native method table
 // ============================================================
@@ -335,6 +354,7 @@ static java_native_method j2me_ui_methods[] = {
     {CLS, "platformRequest",  "(Ljava/lang/String;)V",                           n_platformRequest},
     {CLS, "getTextBoxText",   "()Ljava/lang/String;",                            n_getTextBoxText},
     {CLS, "setTextBoxText",   "(Ljava/lang/String;)V",                           n_setTextBoxText},
+    {CLS, "getFormItemText",  "(I)Ljava/lang/String;",                           n_getFormItemText},
 };
 
 #undef CLS

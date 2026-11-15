@@ -40,6 +40,19 @@ public class Form extends Screen {
     public Item get(int index) { return items.get(index); }
     public void setItemStateListener(ItemStateListener listener) { itemStateListener = listener; }
 
+    public void syncFromNative() {
+        for (int i = 0; i < items.size(); i++) {
+            Item item = items.get(i);
+            if (item instanceof TextField) {
+                String val = NativeBridge.getFormItemText(i);
+                if (val != null) {
+                    ((TextField) item).setString(val);
+                    notifyItemStateChanged(item);
+                }
+            }
+        }
+    }
+
     void notifyItemStateChanged(Item item) {
         if (itemStateListener != null) itemStateListener.itemStateChanged(item);
     }

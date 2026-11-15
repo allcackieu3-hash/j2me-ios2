@@ -215,7 +215,7 @@ class J2METextBoxView: UIView, UITextViewDelegate {
 // MARK: - FormView (Multi-item forms)
 // ============================================================
 
-class FormView: UIView {
+class FormView: UIView, UITextFieldDelegate {
 
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
@@ -234,6 +234,11 @@ class FormView: UIView {
 
     private func setup() {
         backgroundColor = .white
+
+        // Dismiss keyboard when tapping on background
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        addGestureRecognizer(tapGesture)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
@@ -302,7 +307,7 @@ class FormView: UIView {
             case 0:
                 addStringItem(label: label, text: text)
             case 1:
-                addTextField(label: label, text: text)
+                addTextField(label: label, text: text, index: i)
             default:
                 addStringItem(label: label, text: text)
             }
@@ -399,7 +404,7 @@ class FormView: UIView {
         stackView.addArrangedSubview(container)
     }
 
-    private func addTextField(label: String, text: String) {
+    private func addTextField(label: String, text: String, index: Int) {
         let container = UIStackView()
         container.axis = .vertical
         container.spacing = 4
@@ -413,16 +418,37 @@ class FormView: UIView {
         }
 
         let tf = UITextField()
+        tf.tag = index
         tf.text = text
         tf.borderStyle = .roundedRect
         tf.font = .systemFont(ofSize: 16)
         tf.textColor = .black
         tf.backgroundColor = UIColor(white: 0.95, alpha: 1.0)
         tf.returnKeyType = .done
+        tf.delegate = self
+
+        // Keyboard accessory toolbar with "✓ Xong" button to close keyboard
+        let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44))
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let doneBtn = UIBarButtonItem(title: "✓ Xong", style: .done, target: self, action: #selector(dismissKeyboard))
+        doneBtn.tintColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+        doneBtn.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 18, weight: .bold)], for: .normal)
+        toolbar.items = [flex, doneBtn]
+        tf.inputAccessoryView = toolbar
+
         tf.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         container.addArrangedSubview(tf)
 
         stackView.addArrangedSubview(container)
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+
+    @objc func dismissKeyboard() {
+        endEditing(true)
     }
 
     @objc private func commandTapped(_ sender: UIButton) {
@@ -434,7 +460,7 @@ class FormView: UIView {
     @objc private func textFieldChanged(_ sender: UITextField) {
         let text = sender.text ?? ""
         text.withCString { cstr in
-            j2me_ui_set_textbox_text(cstr)
+            j2me_ui_set_form_item_text(Int32(sender.tag), cstr)
         }
     }
 }

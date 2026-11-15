@@ -67,6 +67,7 @@ public class NativeBridge {
     public static native void setListType(int type);
     public static native void setAlertText(String text, int timeout);
     public static native String getTextBoxText();
+    public static native String getFormItemText(int index);
     public static native void setTextBoxText(String text);
 
     // Audio — WAV/MP3 (AVAudioPlayer)

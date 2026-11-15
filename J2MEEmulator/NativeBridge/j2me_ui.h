@@ -33,6 +33,9 @@ void j2me_ui_set_callback(j2me_ui_callback callback);
 void j2me_ui_set_textbox_text(const char *text);
 const char *j2me_ui_get_textbox_text(void);
 
+// Update Form item text from Swift
+void j2me_ui_set_form_item_text(int index, const char *text);
+
 // Form and UI item getters for Swift
 const char *j2me_ui_get_form_title(void);
 int j2me_ui_get_form_item_count(void);
