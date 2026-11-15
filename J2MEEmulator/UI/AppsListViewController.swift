@@ -32,6 +32,12 @@ class AppsListViewController: UIViewController,
 
         // Top bar buttons matching Decade Android (Screenshot 4): 3-dots menu
         let moreMenu = UIMenu(title: "", children: [
+            UIAction(title: "FB: Bùi Hoàng Minh", image: UIImage(systemName: "person.crop.circle")) { [weak self] _ in
+                self?.openFacebookProfile()
+            },
+            UIAction(title: "Zalo: Bùi Hoàng Minh", image: UIImage(systemName: "message.circle")) { [weak self] _ in
+                self?.openZaloProfile()
+            },
             UIAction(title: "Quản lý Proxy", image: UIImage(systemName: "network")) { [weak self] _ in
                 self?.showProxyDialog()
             },
@@ -140,7 +146,7 @@ class AppsListViewController: UIViewController,
             fab.heightAnchor.constraint(equalToConstant: 56),
         ])
 
-        // Author credits in background: 3 rows, centered between top and the red + button
+        // Author credits in background: 4 rows, display only (non-tappable), centered between top and the red + button
         let middleGuide = UILayoutGuide()
         view.addLayoutGuide(middleGuide)
         NSLayoutConstraint.activate([
@@ -151,7 +157,8 @@ class AppsListViewController: UIViewController,
         ])
 
         creditContainer.translatesAutoresizingMaskIntoConstraints = false
-        creditContainer.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
+        creditContainer.isUserInteractionEnabled = false
+        creditContainer.backgroundColor = UIColor(white: 1.0, alpha: 0.88)
         creditContainer.layer.cornerRadius = 14
         creditContainer.layer.borderWidth = 1
         creditContainer.layer.borderColor = UIColor(white: 0.88, alpha: 0.8).cgColor
@@ -161,28 +168,35 @@ class AppsListViewController: UIViewController,
         creditContainer.layer.shadowRadius = 6
         view.addSubview(creditContainer)
 
-        let creditTitleLabel = UILabel()
-        creditTitleLabel.text = "J2ME IOS free tạo bởi BlackLotus"
-        creditTitleLabel.font = .systemFont(ofSize: 15, weight: .bold)
-        creditTitleLabel.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
-        creditTitleLabel.textAlignment = .center
+        let line1 = UILabel()
+        line1.text = "J2ME IOS tạo bởi BlackLotus"
+        line1.font = .systemFont(ofSize: 14, weight: .bold)
+        line1.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
+        line1.textAlignment = .center
 
-        let fbButton = UIButton(type: .system)
-        fbButton.setTitle("https://www.facebook.com/blacklotus00x", for: .normal)
-        fbButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        fbButton.setTitleColor(UIColor(red: 0.09, green: 0.45, blue: 0.95, alpha: 1.0), for: .normal)
-        fbButton.addTarget(self, action: #selector(openFacebookTapped), for: .touchUpInside)
+        let line2 = UILabel()
+        line2.text = "https://www.facebook.com/blacklotus00x"
+        line2.font = .systemFont(ofSize: 12, weight: .medium)
+        line2.textColor = UIColor(red: 0.09, green: 0.45, blue: 0.95, alpha: 1.0)
+        line2.textAlignment = .center
 
-        let zaloButton = UIButton(type: .system)
-        zaloButton.setTitle("Zalo: 0339143765", for: .normal)
-        zaloButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        zaloButton.setTitleColor(UIColor(red: 0.0, green: 0.52, blue: 0.88, alpha: 1.0), for: .normal)
-        zaloButton.addTarget(self, action: #selector(openZaloTapped), for: .touchUpInside)
+        let line3 = UILabel()
+        line3.text = "Zalo: 0339143765"
+        line3.font = .systemFont(ofSize: 12, weight: .medium)
+        line3.textColor = UIColor(red: 0.0, green: 0.52, blue: 0.88, alpha: 1.0)
+        line3.textAlignment = .center
 
-        let creditStack = UIStackView(arrangedSubviews: [creditTitleLabel, fbButton, zaloButton])
+        let line4 = UILabel()
+        line4.text = "ủng hộ tuỳ tâm :)) : 9100128591109 MB Bank"
+        line4.font = .systemFont(ofSize: 12, weight: .semibold)
+        line4.textColor = UIColor(red: 0.85, green: 0.35, blue: 0.1, alpha: 1.0)
+        line4.textAlignment = .center
+
+        let creditStack = UIStackView(arrangedSubviews: [line1, line2, line3, line4])
         creditStack.axis = .vertical
         creditStack.alignment = .center
         creditStack.spacing = 4
+        creditStack.isUserInteractionEnabled = false
         creditStack.translatesAutoresizingMaskIntoConstraints = false
         creditContainer.addSubview(creditStack)
 
@@ -237,18 +251,18 @@ class AppsListViewController: UIViewController,
     }
 
     // ============================================================
-    // MARK: - Author Credits Actions
+    // MARK: - Author Contact Actions (from 3-dots Menu)
     // ============================================================
 
-    @objc private func openFacebookTapped() {
+    @objc private func openFacebookProfile() {
         if let url = URL(string: "https://www.facebook.com/blacklotus00x") {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
 
-    @objc private func openZaloTapped() {
+    @objc private func openZaloProfile() {
         UIPasteboard.general.string = "0339143765"
-        if let url = URL(string: "https://zalo.me/0339143765") {
+        if let url = URL(string: "https://zaloapp.com/qr/p/1o430u4aipvi?src=qr") {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
@@ -538,6 +552,8 @@ class AppsListViewController: UIViewController,
 
     @objc private func showTopMoreMenuActionSheet(_ sender: UIBarButtonItem) {
         let alert = UIAlertController(title: "KamenRider Decade", message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "🌐 FB: Bùi Hoàng Minh", style: .default) { [weak self] _ in self?.openFacebookProfile() })
+        alert.addAction(UIAlertAction(title: "💬 Zalo: Bùi Hoàng Minh", style: .default) { [weak self] _ in self?.openZaloProfile() })
         alert.addAction(UIAlertAction(title: "🌐 Quản lý Proxy", style: .default) { [weak self] _ in self?.showProxyDialog() })
         alert.addAction(UIAlertAction(title: "🔄 Thay IP Phiên Bản", style: .default) { [weak self] _ in self?.showChangeIpDialog() })
         alert.addAction(UIAlertAction(title: "⚙ Thiết lập", style: .default) { [weak self] _ in self?.showGlobalSettings() })
