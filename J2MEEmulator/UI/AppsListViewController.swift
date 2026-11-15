@@ -146,68 +146,68 @@ class AppsListViewController: UIViewController,
             fab.heightAnchor.constraint(equalToConstant: 56),
         ])
 
-        // Author credits in background: 4 rows, display only (non-tappable), centered between top and the red + button
-        let middleGuide = UILayoutGuide()
-        view.addLayoutGuide(middleGuide)
-        NSLayoutConstraint.activate([
-            middleGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            middleGuide.bottomAnchor.constraint(equalTo: fab.topAnchor),
-            middleGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            middleGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
-
+        // Author credits at bottom: 4 rows, display only (non-tappable), level with the red + button
         creditContainer.translatesAutoresizingMaskIntoConstraints = false
         creditContainer.isUserInteractionEnabled = false
-        creditContainer.backgroundColor = UIColor(white: 1.0, alpha: 0.88)
+        creditContainer.backgroundColor = UIColor(white: 1.0, alpha: 0.90)
         creditContainer.layer.cornerRadius = 14
         creditContainer.layer.borderWidth = 1
         creditContainer.layer.borderColor = UIColor(white: 0.88, alpha: 0.8).cgColor
         creditContainer.layer.shadowColor = UIColor.black.cgColor
-        creditContainer.layer.shadowOpacity = 0.04
+        creditContainer.layer.shadowOpacity = 0.05
         creditContainer.layer.shadowOffset = CGSize(width: 0, height: 2)
         creditContainer.layer.shadowRadius = 6
         view.addSubview(creditContainer)
 
         let line1 = UILabel()
         line1.text = "J2ME IOS tạo bởi BlackLotus"
-        line1.font = .systemFont(ofSize: 14, weight: .bold)
+        line1.font = .systemFont(ofSize: 13, weight: .bold)
         line1.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
         line1.textAlignment = .center
+        line1.adjustsFontSizeToFitWidth = true
+        line1.minimumScaleFactor = 0.8
 
         let line2 = UILabel()
         line2.text = "https://www.facebook.com/blacklotus00x"
-        line2.font = .systemFont(ofSize: 12, weight: .medium)
+        line2.font = .systemFont(ofSize: 11, weight: .medium)
         line2.textColor = UIColor(red: 0.09, green: 0.45, blue: 0.95, alpha: 1.0)
         line2.textAlignment = .center
+        line2.adjustsFontSizeToFitWidth = true
+        line2.minimumScaleFactor = 0.8
 
         let line3 = UILabel()
         line3.text = "Zalo: 0339143765"
-        line3.font = .systemFont(ofSize: 12, weight: .medium)
+        line3.font = .systemFont(ofSize: 11, weight: .medium)
         line3.textColor = UIColor(red: 0.0, green: 0.52, blue: 0.88, alpha: 1.0)
         line3.textAlignment = .center
+        line3.adjustsFontSizeToFitWidth = true
+        line3.minimumScaleFactor = 0.8
 
         let line4 = UILabel()
         line4.text = "ủng hộ tuỳ tâm :)) : 9100128591109 MB Bank"
-        line4.font = .systemFont(ofSize: 12, weight: .semibold)
+        line4.font = .systemFont(ofSize: 11, weight: .semibold)
         line4.textColor = UIColor(red: 0.85, green: 0.35, blue: 0.1, alpha: 1.0)
         line4.textAlignment = .center
+        line4.adjustsFontSizeToFitWidth = true
+        line4.minimumScaleFactor = 0.8
 
         let creditStack = UIStackView(arrangedSubviews: [line1, line2, line3, line4])
         creditStack.axis = .vertical
         creditStack.alignment = .center
-        creditStack.spacing = 4
+        creditStack.spacing = 3
         creditStack.isUserInteractionEnabled = false
         creditStack.translatesAutoresizingMaskIntoConstraints = false
         creditContainer.addSubview(creditStack)
 
         NSLayoutConstraint.activate([
-            creditStack.topAnchor.constraint(equalTo: creditContainer.topAnchor, constant: 10),
-            creditStack.bottomAnchor.constraint(equalTo: creditContainer.bottomAnchor, constant: -10),
-            creditStack.leadingAnchor.constraint(equalTo: creditContainer.leadingAnchor, constant: 16),
-            creditStack.trailingAnchor.constraint(equalTo: creditContainer.trailingAnchor, constant: -16),
+            creditStack.topAnchor.constraint(equalTo: creditContainer.topAnchor, constant: 8),
+            creditStack.bottomAnchor.constraint(equalTo: creditContainer.bottomAnchor, constant: -8),
+            creditStack.leadingAnchor.constraint(equalTo: creditContainer.leadingAnchor, constant: 12),
+            creditStack.trailingAnchor.constraint(equalTo: creditContainer.trailingAnchor, constant: -12),
 
-            creditContainer.centerXAnchor.constraint(equalTo: middleGuide.centerXAnchor),
-            creditContainer.centerYAnchor.constraint(equalTo: middleGuide.centerYAnchor),
+            creditContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            creditContainer.trailingAnchor.constraint(equalTo: fab.leadingAnchor, constant: -12),
+            creditContainer.centerYAnchor.constraint(equalTo: fab.centerYAnchor),
         ])
 
         view.bringSubviewToFront(fab)
@@ -247,7 +247,7 @@ class AppsListViewController: UIViewController,
         guard let layout = springboardCollectionView.collectionViewLayout as? UICollectionViewFlowLayout else { return }
         layout.itemSize = CGSize(width: cellWidth, height: 96)
         layout.sectionInset = UIEdgeInsets(top: 20, left: horizontalInset,
-                                            bottom: 20, right: horizontalInset)
+                                            bottom: 96, right: horizontalInset)
     }
 
     // ============================================================
@@ -264,18 +264,6 @@ class AppsListViewController: UIViewController,
         UIPasteboard.general.string = "0339143765"
         if let url = URL(string: "https://zaloapp.com/qr/p/1o430u4aipvi?src=qr") {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        }
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if scrollView == springboardCollectionView {
-            let offsetY = scrollView.contentOffset.y
-            if offsetY > 20 {
-                let alpha = max(0, 1.0 - (offsetY - 20) / 80.0)
-                creditContainer.alpha = alpha
-            } else {
-                creditContainer.alpha = 1.0
-            }
         }
     }
 
