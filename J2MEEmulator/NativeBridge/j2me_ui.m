@@ -291,11 +291,11 @@ static s32 n_listAddItem(Runtime *runtime, JClass *clazz) {
     return RUNTIME_STATUS_NORMAL;
 }
 
-bool j2me_ui_is_list_item_running(int index) {
+int j2me_ui_is_list_item_running(int index) {
     if (index >= 0 && index < g_list_item_count) {
-        return g_list_items_running[index] != 0;
+        return g_list_items_running[index] != 0 ? 1 : 0;
     }
-    return false;
+    return 0;
 }
 
 static s32 n_setListType(Runtime *runtime, JClass *clazz) {

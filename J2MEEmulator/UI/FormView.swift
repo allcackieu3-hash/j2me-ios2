@@ -739,7 +739,7 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         let count = j2me_ui_get_list_item_count()
         for i in 0..<count {
             let title = String(cString: j2me_ui_get_list_item(Int32(i)))
-            let isRunning = j2me_ui_is_list_item_running(Int32(i))
+            let isRunning = j2me_ui_is_list_item_running(Int32(i)) != 0
             items.append((title: title, isRunning: isRunning))
         }
         selectedRow = 0
