@@ -43,7 +43,7 @@ class J2METextBoxView: UIView, UITextViewDelegate {
     }
 
     private func setup() {
-        backgroundColor = .white
+        backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         // White editing canvas
         textView.font = .systemFont(ofSize: 18)
@@ -246,7 +246,7 @@ class FormView: UIView, UITextFieldDelegate {
     }
 
     private func setup() {
-        backgroundColor = .white
+        backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         // Dismiss keyboard when tapping on background
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
@@ -321,6 +321,8 @@ class FormView: UIView, UITextFieldDelegate {
                 addStringItem(label: label, text: text)
             case 1:
                 addTextField(label: label, text: text, index: i)
+            case 2:
+                addChoiceGroup(label: label, text: text, index: i)
             default:
                 addStringItem(label: label, text: text)
             }
@@ -393,54 +395,91 @@ class FormView: UIView, UITextFieldDelegate {
     }
 
     private func addStringItem(label: String, text: String) {
+        let card = UIView()
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 10
+        card.layer.borderWidth = 1
+        card.layer.borderColor = UIColor(white: 0.88, alpha: 1.0).cgColor
+        card.translatesAutoresizingMaskIntoConstraints = false
+
         let container = UIStackView()
         container.axis = .vertical
-        container.spacing = 3
+        container.spacing = 6
+        container.layoutMargins = UIEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(container)
 
         if !label.isEmpty {
             let labelView = UILabel()
             labelView.text = label
             labelView.font = .boldSystemFont(ofSize: 14)
-            labelView.textColor = .secondaryLabel
+            labelView.textColor = UIColor(red: 0.12, green: 0.45, blue: 0.90, alpha: 1.0)
             container.addArrangedSubview(labelView)
         }
 
         if !text.isEmpty {
             let textView = UILabel()
             textView.text = text
-            textView.font = .systemFont(ofSize: 16)
-            textView.textColor = .black
+            textView.font = .systemFont(ofSize: 15)
+            textView.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
             textView.numberOfLines = 0
             container.addArrangedSubview(textView)
         }
 
-        stackView.addArrangedSubview(container)
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: card.topAnchor),
+            container.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+        ])
+
+        stackView.addArrangedSubview(card)
     }
 
     private func addTextField(label: String, text: String, index: Int) {
+        let card = UIView()
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 10
+        card.layer.borderWidth = 1
+        card.layer.borderColor = UIColor(white: 0.88, alpha: 1.0).cgColor
+        card.translatesAutoresizingMaskIntoConstraints = false
+
         let container = UIStackView()
         container.axis = .vertical
-        container.spacing = 4
+        container.spacing = 6
+        container.layoutMargins = UIEdgeInsets(top: 10, left: 14, bottom: 12, right: 14)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(container)
 
         if !label.isEmpty {
             let labelView = UILabel()
             labelView.text = label
             labelView.font = .boldSystemFont(ofSize: 14)
-            labelView.textColor = .secondaryLabel
+            labelView.textColor = UIColor(red: 0.12, green: 0.15, blue: 0.20, alpha: 1.0)
             container.addArrangedSubview(labelView)
         }
 
         let tf = UITextField()
         tf.tag = index
         tf.text = text
-        tf.borderStyle = .roundedRect
+        tf.borderStyle = .none
         tf.font = .systemFont(ofSize: 16)
         tf.textColor = .black
-        tf.backgroundColor = UIColor(white: 0.95, alpha: 1.0)
+        tf.backgroundColor = UIColor(white: 0.96, alpha: 1.0)
+        tf.layer.cornerRadius = 8
+        tf.layer.borderWidth = 1
+        tf.layer.borderColor = UIColor(white: 0.85, alpha: 1.0).cgColor
         tf.returnKeyType = .done
         tf.delegate = self
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.heightAnchor.constraint(equalToConstant: 42).isActive = true
 
-        // Keyboard accessory toolbar with "✓ Xong" button to close keyboard
+        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 42))
+        tf.leftView = paddingView
+        tf.leftViewMode = .always
+
         let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44))
         let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         let doneBtn = UIBarButtonItem(title: "✓ Xong", style: .done, target: self, action: #selector(dismissKeyboard))
@@ -452,7 +491,154 @@ class FormView: UIView, UITextFieldDelegate {
         tf.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         container.addArrangedSubview(tf)
 
-        stackView.addArrangedSubview(container)
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: card.topAnchor),
+            container.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+        ])
+
+        stackView.addArrangedSubview(card)
+    }
+
+    private func addChoiceGroup(label: String, text: String, index: Int) {
+        let card = UIView()
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 10
+        card.layer.borderWidth = 1
+        card.layer.borderColor = UIColor(white: 0.88, alpha: 1.0).cgColor
+        card.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = UIStackView()
+        container.axis = .vertical
+        container.spacing = 8
+        container.layoutMargins = UIEdgeInsets(top: 10, left: 14, bottom: 12, right: 14)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(container)
+
+        if !label.isEmpty {
+            let labelView = UILabel()
+            labelView.text = label
+            labelView.font = .boldSystemFont(ofSize: 15)
+            labelView.textColor = UIColor(red: 0.12, green: 0.15, blue: 0.20, alpha: 1.0)
+            container.addArrangedSubview(labelView)
+        }
+
+        // Parse format: "selectedIndex\nopt1\topt2\nsel0,sel1"
+        let parts = text.components(separatedBy: "\n")
+        let selectedIdx = Int(parts.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") ?? 0
+        let options = parts.count > 1 ? parts[1].components(separatedBy: "\t").filter { !$0.isEmpty } : []
+        var flags: [Bool] = []
+        if parts.count > 2 {
+            flags = parts[2].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "1" }
+        }
+
+        let choiceType = j2me_ui_get_form_item_param1(Int32(index)) // 1=EXCLUSIVE, 2=MULTIPLE, 4=POPUP
+
+        if (choiceType == 1 || choiceType == 4) && options.count > 0 && options.count <= 3 {
+            // Segmented control for 2-3 options
+            let seg = UISegmentedControl(items: options)
+            seg.selectedSegmentIndex = max(0, min(selectedIdx, options.count - 1))
+            seg.tag = index
+            seg.addTarget(self, action: #selector(choiceSegmentChanged(_:)), for: .valueChanged)
+            container.addArrangedSubview(seg)
+        } else {
+            // List of checkable / selectable rows
+            for (optIdx, optTitle) in options.enumerated() {
+                let row = UIStackView()
+                row.axis = .horizontal
+                row.spacing = 10
+                row.alignment = .center
+
+                let optLabel = UILabel()
+                optLabel.text = optTitle
+                optLabel.font = .systemFont(ofSize: 15)
+                optLabel.textColor = UIColor(red: 0.20, green: 0.20, blue: 0.22, alpha: 1.0)
+                row.addArrangedSubview(optLabel)
+
+                let isSelected = choiceType == 2 ? (optIdx < flags.count ? flags[optIdx] : false) : (optIdx == selectedIdx)
+                let checkBtn = UIButton(type: .custom)
+                checkBtn.tag = index * 1000 + optIdx
+                checkBtn.layer.cornerRadius = 6
+                checkBtn.layer.borderWidth = 1.5
+                checkBtn.translatesAutoresizingMaskIntoConstraints = false
+                checkBtn.widthAnchor.constraint(equalToConstant: 24).isActive = true
+                checkBtn.heightAnchor.constraint(equalToConstant: 24).isActive = true
+
+                applyCheckboxStyle(checkBtn, isChecked: isSelected)
+                checkBtn.addTarget(self, action: #selector(choiceRowTapped(_:)), for: .touchUpInside)
+                row.addArrangedSubview(checkBtn)
+
+                container.addArrangedSubview(row)
+            }
+        }
+
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: card.topAnchor),
+            container.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+        ])
+
+        stackView.addArrangedSubview(card)
+    }
+
+    private func applyCheckboxStyle(_ btn: UIButton, isChecked: Bool) {
+        if isChecked {
+            btn.backgroundColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0)
+            btn.layer.borderColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0).cgColor
+            btn.setTitle("✓", for: .normal)
+            btn.setTitleColor(.white, for: .normal)
+            btn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        } else {
+            btn.backgroundColor = .white
+            btn.layer.borderColor = UIColor(white: 0.75, alpha: 1.0).cgColor
+            btn.setTitle("", for: .normal)
+        }
+    }
+
+    @objc private func choiceSegmentChanged(_ sender: UISegmentedControl) {
+        let itemIndex = sender.tag
+        let raw = String(cString: j2me_ui_get_form_item_text(Int32(itemIndex)))
+        var parts = raw.components(separatedBy: "\n")
+        if parts.isEmpty { parts = ["0", "", ""] }
+        parts[0] = "\(sender.selectedSegmentIndex)"
+        let updated = parts.joined(separator: "\n")
+        updated.withCString { cstr in
+            j2me_ui_set_form_item_text(Int32(itemIndex), cstr)
+        }
+    }
+
+    @objc private func choiceRowTapped(_ sender: UIButton) {
+        let itemIndex = sender.tag / 1000
+        let optIndex = sender.tag % 1000
+        let raw = String(cString: j2me_ui_get_form_item_text(Int32(itemIndex)))
+        var parts = raw.components(separatedBy: "\n")
+        while parts.count < 3 { parts.append("") }
+
+        let choiceType = j2me_ui_get_form_item_param1(Int32(itemIndex))
+        let options = parts[1].components(separatedBy: "\t")
+        var flags = parts[2].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "1" }
+        while flags.count < options.count { flags.append(false) }
+
+        if choiceType == 2 {
+            // MULTIPLE: toggle flag
+            if optIndex < flags.count {
+                flags[optIndex].toggle()
+            }
+            parts[2] = flags.map { $0 ? "1" : "0" }.joined(separator: ",")
+            applyCheckboxStyle(sender, isChecked: flags[optIndex])
+        } else {
+            // EXCLUSIVE: select single
+            parts[0] = "\(optIndex)"
+            buildFromNativeData() // Re-render card with updated radio state
+        }
+
+        let updated = parts.joined(separator: "\n")
+        updated.withCString { cstr in
+            j2me_ui_set_form_item_text(Int32(itemIndex), cstr)
+        }
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -502,7 +688,7 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
     }
 
     private func setup() {
-        backgroundColor = .white
+        backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         tableView.dataSource = self
         tableView.delegate = self

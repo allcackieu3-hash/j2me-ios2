@@ -54,13 +54,15 @@ class AppsListViewController: UIViewController,
             },
         ])
         let moreItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: moreMenu)
-        moreItem.tintColor = .white
+        moreItem.target = self
+        moreItem.action = #selector(showTopMoreMenuActionSheet(_:))
+        moreItem.tintColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
 
         let addItem = UIBarButtonItem(
             systemItem: .add, primaryAction: UIAction { [weak self] _ in
                 self?.addAppTapped()
             })
-        addItem.tintColor = .white
+        addItem.tintColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0)
 
         navigationItem.rightBarButtonItems = [moreItem, addItem]
 
@@ -106,11 +108,14 @@ class AppsListViewController: UIViewController,
         title = "KamenRider Decade"
         let navBarAppearance = UINavigationBarAppearance()
         navBarAppearance.configureWithOpaqueBackground()
-        navBarAppearance.backgroundColor = UIColor(red: 0.13, green: 0.13, blue: 0.13, alpha: 1.0)
-        navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white, .font: UIFont.systemFont(ofSize: 18, weight: .bold)]
+        navBarAppearance.backgroundColor = .white
+        navBarAppearance.titleTextAttributes = [
+            .foregroundColor: UIColor(red: 0.12, green: 0.12, blue: 0.15, alpha: 1.0),
+            .font: UIFont.systemFont(ofSize: 18, weight: .bold)
+        ]
         navigationController?.navigationBar.standardAppearance = navBarAppearance
         navigationController?.navigationBar.scrollEdgeAppearance = navBarAppearance
-        navigationController?.navigationBar.tintColor = .white
+        navigationController?.navigationBar.tintColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
 
         // Red Floating Action Button (+) matching Decade Android
         let fab = UIButton(type: .system)
@@ -417,6 +422,22 @@ class AppsListViewController: UIViewController,
             UserDefaults.standard.set(newName, forKey: "name_\(Self.gameId(for: app))")
             self.scanApps()
         })
+        present(alert, animated: true)
+    }
+
+    @objc private func showTopMoreMenuActionSheet(_ sender: UIBarButtonItem) {
+        let alert = UIAlertController(title: "KamenRider Decade", message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "🌐 Quản lý Proxy", style: .default) { [weak self] _ in self?.showProxyDialog() })
+        alert.addAction(UIAlertAction(title: "🔄 Thay IP Phiên Bản", style: .default) { [weak self] _ in self?.showChangeIpDialog() })
+        alert.addAction(UIAlertAction(title: "⚙ Thiết lập", style: .default) { [weak self] _ in self?.showGlobalSettings() })
+        alert.addAction(UIAlertAction(title: "👤 Hồ sơ", style: .default) { [weak self] _ in self?.showProfilesDialog() })
+        alert.addAction(UIAlertAction(title: "❓ Trợ giúp", style: .default) { [weak self] _ in self?.showHelpDialog() })
+        alert.addAction(UIAlertAction(title: "📝 Lưu log", style: .default) { [weak self] _ in self?.saveLogs() })
+        alert.addAction(UIAlertAction(title: "✕ Thoát", style: .destructive) { _ in exit(0) })
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.barButtonItem = sender
+        }
         present(alert, animated: true)
     }
 

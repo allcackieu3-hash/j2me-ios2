@@ -3,7 +3,7 @@ package javax.microedition.lcdui;
 import java.util.ArrayList;
 
 public class ChoiceGroup extends Item implements Choice {
-    private int choiceType;
+    int choiceType;
     private ArrayList<String> strings = new ArrayList<String>();
     private ArrayList<Image> images = new ArrayList<Image>();
     private ArrayList<Boolean> selected = new ArrayList<Boolean>();
@@ -26,7 +26,8 @@ public class ChoiceGroup extends Item implements Choice {
     public void set(int i, String s, Image img) { strings.set(i,s); images.set(i,img); }
     public void setSelectedIndex(int i, boolean s) {
         if (choiceType==EXCLUSIVE) for (int j=0;j<selected.size();j++) selected.set(j,Boolean.FALSE);
-        selected.set(i,s);
+        if (i >= 0 && i < selected.size()) selected.set(i,s);
+        if (owner != null && owner.isShown()) owner.showNative();
     }
     public int size() { return strings.size(); }
     public int getSelectedFlags(boolean[] a) { for(int i=0;i<a.length&&i<selected.size();i++) a[i]=selected.get(i); return selected.size(); }

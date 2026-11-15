@@ -453,48 +453,40 @@ class GameViewController: UIViewController {
 
     @objc private func showMenu() {
         softKeyHaptic.impactOccurred(intensity: 0.6)
-        let alert = UIAlertController(title: "KamenRider Decade Menu", message: appName, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "KamenRider Decade Menu", message: "\(appName) — Tab \(activeTabIndex + 1)", preferredStyle: .actionSheet)
 
-        // 1. Mục Bàn phím ảo cốt lõi của Decade
-        alert.addAction(UIAlertAction(title: "⌨ Bàn phím ảo & Cấu trúc phím", style: .default) { [weak self] _ in
-            self?.showVirtualKeyboardMenu()
-        })
-
-        // 2. Thoát
+        // 1. Thoát midlet (chuẩn APK)
         alert.addAction(UIAlertAction(title: "✕ Thoát game về danh sách", style: .destructive) { [weak self] _ in
             self?.backTapped()
         })
 
-        // 3. Ẩn ứng dụng
-        alert.addAction(UIAlertAction(title: "Ẩn ứng dụng", style: .default) { _ in
-            UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
+        // 2. Ẩn ứng dụng (Bong bóng nổi)
+        alert.addAction(UIAlertAction(title: "🔘 Ẩn ứng dụng (Bong bóng nổi)", style: .default) { [weak self] _ in
+            self?.minimizeToFloatingBubble()
         })
 
-        // 4. Treo tắt màn (Sleep prevention checkbox)
-        let keepAwakeTitle = (isKeepAwake ? "✓ " : "   ") + "Treo tắt màn (Giữ sáng / Chạy nền)"
+        // 3. Treo tắt màn (Chạy nền liên tục không ngắt kết nối)
+        let keepAwakeTitle = (isKeepAwake ? "✓ " : "   ") + "Treo tắt màn (Chạy nền liên tục)"
         alert.addAction(UIAlertAction(title: keepAwakeTitle, style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.isKeepAwake.toggle()
-            UIApplication.shared.isIdleTimerDisabled = self.isKeepAwake
-            self.showToast(message: self.isKeepAwake ? "Đã bật treo tắt màn" : "Đã tắt treo tắt màn")
+            self?.toggleTreoTatMan()
         })
 
-        // 5. Hẹn giờ tự tắt
+        // 4. Hẹn giờ tự tắt
         alert.addAction(UIAlertAction(title: "⏰ Hẹn giờ tự tắt", style: .default) { [weak self] _ in
             self?.promptShutdownTimer()
         })
 
-        // 6. Tiết kiệm pin
-        alert.addAction(UIAlertAction(title: "Tiết kiệm pin (Cố định 30 FPS)", style: .default) { [weak self] _ in
+        // 5. Tiết kiệm pin
+        alert.addAction(UIAlertAction(title: "⚡ Tiết kiệm pin (30 FPS)", style: .default) { [weak self] _ in
             self?.showToast(message: "Đã kích hoạt chế độ tiết kiệm pin (30 FPS)")
         })
 
-        // 7. Lưu log
-        alert.addAction(UIAlertAction(title: "Lưu log", style: .default) { [weak self] _ in
+        // 6. Lưu log
+        alert.addAction(UIAlertAction(title: "📝 Lưu log", style: .default) { [weak self] _ in
             self?.showToast(message: "Đã xuất log hệ thống thành công")
         })
 
-        // 8. Tự động dọn bộ nhớ
+        // 7. Tự động dọn bộ nhớ
         let cleanTitle = (isAutoCleanRam ? "✓ " : "   ") + "Tự động dọn bộ nhớ"
         alert.addAction(UIAlertAction(title: cleanTitle, style: .default) { [weak self] _ in
             guard let self = self else { return }
@@ -502,18 +494,28 @@ class GameViewController: UIViewController {
             self.showToast(message: self.isAutoCleanRam ? "Đã bật tự động dọn RAM" : "Đã tắt tự động dọn RAM")
         })
 
-        // 9. Giới hạn FPS
-        alert.addAction(UIAlertAction(title: "Giới hạn FPS (15 / 30 / 60)", style: .default) { [weak self] _ in
+        // 8. Thêm proxy (chuẩn APK action_proxy_add)
+        alert.addAction(UIAlertAction(title: "🌐 Thêm proxy", style: .default) { [weak self] _ in
+            self?.openProxyManager()
+        })
+
+        // 9. Gán proxy cho tab (chuẩn APK action_proxy_assign)
+        alert.addAction(UIAlertAction(title: "📑 Gán proxy cho tab \(self.activeTabIndex + 1)", style: .default) { [weak self] _ in
+            self?.promptAssignProxyForCurrentTab()
+        })
+
+        // 10. Giới hạn FPS
+        alert.addAction(UIAlertAction(title: "🎯 Giới hạn FPS (15 / 30 / 60)", style: .default) { [weak self] _ in
             self?.promptFPSLimit()
         })
 
-        // 10. Khoá xoay màn hình
-        alert.addAction(UIAlertAction(title: "✓ Khoá xoay màn hình (Dọc)", style: .default) { [weak self] _ in
-            self?.showToast(message: "Màn hình đã được khoá dọc cố định")
+        // 11. Bàn phím ảo
+        alert.addAction(UIAlertAction(title: "⌨ Bàn phím ảo", style: .default) { [weak self] _ in
+            self?.showVirtualKeyboardMenu()
         })
 
-        // 11. Thay IP Phiên Bản
-        alert.addAction(UIAlertAction(title: "Thay IP Phiên Bản", style: .default) { [weak self] _ in
+        // 12. Thay IP Phiên Bản
+        alert.addAction(UIAlertAction(title: "🔄 Thay IP Phiên Bản", style: .default) { [weak self] _ in
             self?.promptChangeServerIP()
         })
 
@@ -525,6 +527,133 @@ class GameViewController: UIViewController {
         }
 
         present(alert, animated: true)
+    }
+
+    // OLED Pure Black Overlay for authentic "Treo tắt màn"
+    private lazy var oledBlackOverlay: UIView = {
+        let v = UIView(frame: UIScreen.main.bounds)
+        v.backgroundColor = .black
+        v.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissOledBlackOverlay))
+        v.addGestureRecognizer(tap)
+        let lbl = UILabel()
+        lbl.text = "🌙 Đang treo tắt màn (Tiết kiệm pin)\nChạm vào màn hình để bật lại sáng"
+        lbl.numberOfLines = 2
+        lbl.textAlignment = .center
+        lbl.textColor = UIColor(white: 0.35, alpha: 1.0)
+        lbl.font = .systemFont(ofSize: 14, weight: .medium)
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(lbl)
+        NSLayoutConstraint.activate([
+            lbl.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+            lbl.centerYAnchor.constraint(equalTo: v.centerYAnchor),
+        ])
+        return v
+    }()
+
+    @objc private func dismissOledBlackOverlay() {
+        UIView.animate(withDuration: 0.25, animations: {
+            self.oledBlackOverlay.alpha = 0
+        }) { _ in
+            self.oledBlackOverlay.removeFromSuperview()
+            self.oledBlackOverlay.alpha = 1.0
+        }
+    }
+
+    private func toggleTreoTatMan() {
+        isKeepAwake.toggle()
+        DecadeBackgroundKeeper.shared.setTreoActive(isKeepAwake)
+        if isKeepAwake {
+            view.window?.addSubview(oledBlackOverlay)
+            showToast(message: "Đã bật treo tắt màn & chạy ngầm liên tục")
+        } else {
+            dismissOledBlackOverlay()
+            showToast(message: "Đã tắt treo tắt màn")
+        }
+    }
+
+    private func minimizeToFloatingBubble() {
+        DecadeBackgroundKeeper.shared.startKeepalive()
+        DecadeFloatingBubble.shared.setTabBadge(activeTabIndex + 1)
+        DecadeFloatingBubble.shared.onRestoreGame = { [weak self] in
+            self?.restoreFromFloatingBubble()
+        }
+        DecadeFloatingBubble.shared.onAssignProxy = { [weak self] in
+            self?.promptAssignProxyForCurrentTab()
+        }
+        DecadeFloatingBubble.shared.onToggleTreo = { [weak self] in
+            self?.toggleTreoTatMan()
+        }
+        DecadeFloatingBubble.shared.show(in: view.window)
+        showToast(message: "Đã ẩn ứng dụng thành bong bóng nổi")
+    }
+
+    private func restoreFromFloatingBubble() {
+        DecadeFloatingBubble.shared.hide()
+        view.window?.bringSubviewToFront(view)
+        showToast(message: "Đã mở lại màn hình game (Tab \(activeTabIndex + 1))")
+    }
+
+    private func promptAssignProxyForCurrentTab() {
+        let alert = UIAlertController(
+            title: "Gán proxy — Tab \(activeTabIndex + 1)",
+            message: "Chọn proxy áp dụng riêng cho tab này:",
+            preferredStyle: .actionSheet
+        )
+
+        alert.addAction(UIAlertAction(title: "⦿ Mặc định (Không dùng proxy)", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            UserDefaults.standard.removeObject(forKey: "decade_tab_proxy_\(self.appName)_\(self.activeTabIndex)")
+            self.showToast(message: "Tab \(self.activeTabIndex + 1): Sử dụng mạng mặc định")
+        })
+
+        // Check configured global proxy
+        let host = UserDefaults.standard.string(forKey: "decade_proxy_host") ?? ""
+        let port = UserDefaults.standard.string(forKey: "decade_proxy_port") ?? ""
+        let proto = UserDefaults.standard.string(forKey: "decade_proxy_type") ?? "HTTP"
+
+        if !host.isEmpty && !port.isEmpty {
+            let proxyTitle = "\(proto) \(host):\(port)"
+            alert.addAction(UIAlertAction(title: "⦾ Proxy chính: \(proxyTitle)", style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                UserDefaults.standard.set(proxyTitle, forKey: "decade_tab_proxy_\(self.appName)_\(self.activeTabIndex)")
+                self.showToast(message: "Đã gán \(proxyTitle) cho Tab \(self.activeTabIndex + 1)")
+            })
+        }
+
+        // Additional preset proxies
+        let presets = [
+            "HTTP 103.152.112.5:8080",
+            "SOCKS5 45.77.24.12:1080",
+            "HTTP 14.225.205.10:3128"
+        ]
+        for p in presets {
+            alert.addAction(UIAlertAction(title: "⦾ \(p)", style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                UserDefaults.standard.set(p, forKey: "decade_tab_proxy_\(self.appName)_\(self.activeTabIndex)")
+                self.showToast(message: "Đã gán \(p) cho Tab \(self.activeTabIndex + 1)")
+            })
+        }
+
+        alert.addAction(UIAlertAction(title: "⚙ Quản lý & Thêm proxy mới...", style: .default) { [weak self] _ in
+            self?.openProxyManager()
+        })
+
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = menuBtn
+            popover.sourceRect = menuBtn.bounds
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func openProxyManager() {
+        let proxyVC = DecadeProxyViewController()
+        let nav = UINavigationController(rootViewController: proxyVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
 
     // ============================================================

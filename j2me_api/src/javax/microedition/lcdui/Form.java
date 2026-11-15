@@ -21,6 +21,7 @@ public class Form extends Screen {
         if (item == null) throw new NullPointerException();
         item.owner = this;
         items.add(item);
+        if (isShown()) showNative();
         return items.size() - 1;
     }
 
@@ -32,10 +33,27 @@ public class Form extends Screen {
         return append(new ImageItem(null, img, ImageItem.LAYOUT_DEFAULT, ""));
     }
 
-    public void insert(int index, Item item) { item.owner = this; items.add(index, item); }
-    public void set(int index, Item item) { item.owner = this; items.set(index, item); }
-    public void delete(int index) { items.remove(index); }
-    public void deleteAll() { items.clear(); }
+    public void insert(int index, Item item) {
+        item.owner = this;
+        items.add(index, item);
+        if (isShown()) showNative();
+    }
+
+    public void set(int index, Item item) {
+        item.owner = this;
+        items.set(index, item);
+        if (isShown()) showNative();
+    }
+
+    public void delete(int index) {
+        items.remove(index);
+        if (isShown()) showNative();
+    }
+
+    public void deleteAll() {
+        items.clear();
+        if (isShown()) showNative();
+    }
     public int size() { return items.size(); }
     public Item get(int index) { return items.get(index); }
     public void setItemStateListener(ItemStateListener listener) { itemStateListener = listener; }
@@ -48,6 +66,28 @@ public class Form extends Screen {
                 if (val != null) {
                     ((TextField) item).setString(val);
                     notifyItemStateChanged(item);
+                }
+            } else if (item instanceof ChoiceGroup) {
+                ChoiceGroup cg = (ChoiceGroup) item;
+                String val = NativeBridge.getFormItemText(i);
+                if (val != null && val.length() > 0) {
+                    try {
+                        String[] parts = val.split("\n");
+                        if (parts.length >= 1) {
+                            int selIdx = Integer.parseInt(parts[0].trim());
+                            if (selIdx >= 0 && selIdx < cg.size()) {
+                                cg.setSelectedIndex(selIdx, true);
+                            }
+                        }
+                        if (parts.length >= 3) {
+                            String[] flags = parts[2].split(",");
+                            for (int f = 0; f < flags.length && f < cg.size(); f++) {
+                                cg.setSelectedIndex(f, "1".equals(flags[f].trim()));
+                            }
+                        }
+                        notifyItemStateChanged(item);
+                    } catch (Throwable t) {
+                    }
                 }
             }
         }
@@ -68,6 +108,20 @@ public class Form extends Screen {
                 TextField tf = (TextField) item;
                 NativeBridge.formAddTextField(item.getItemLabel(), item.getItemText(),
                         tf.getMaxSize(), tf.getConstraints());
+            } else if (type == 2 && item instanceof ChoiceGroup) { // ChoiceGroup
+                ChoiceGroup cg = (ChoiceGroup) item;
+                StringBuilder sb = new StringBuilder();
+                sb.append(cg.getSelectedIndex()).append("\n");
+                for (int j = 0; j < cg.size(); j++) {
+                    if (j > 0) sb.append("\t");
+                    sb.append(cg.getString(j));
+                }
+                sb.append("\n");
+                for (int j = 0; j < cg.size(); j++) {
+                    if (j > 0) sb.append(",");
+                    sb.append(cg.isSelected(j) ? "1" : "0");
+                }
+                NativeBridge.formAddTextField(item.getItemLabel(), sb.toString(), 2, cg.choiceType);
             } else {
                 // Fallback: show as string
                 NativeBridge.formAddStringItem(item.getItemLabel(), item.getItemText(), 0);

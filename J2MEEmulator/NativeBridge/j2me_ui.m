@@ -169,7 +169,7 @@ static s32 n_formAddTextField(Runtime *runtime, JClass *clazz) {
 
     if (g_form_item_count >= MAX_FORM_ITEMS) return RUNTIME_STATUS_NORMAL;
     FormItem *item = &g_form_items[g_form_item_count++];
-    item->type = 1; // textfield
+    item->type = (maxSize == 2) ? 2 : 1; // 2=choicegroup, 1=textfield
     item->intParam1 = maxSize;
     item->intParam2 = constraints;
     item->label[0] = '\0';
