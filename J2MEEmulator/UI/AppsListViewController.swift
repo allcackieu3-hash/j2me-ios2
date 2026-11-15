@@ -15,6 +15,7 @@ class AppsListViewController: UIViewController,
 
     private var springboardCollectionView: UICollectionView!
     private let emptyStateLabel = UILabel()
+    private let creditContainer = UIView()
     private var lastLayoutWidth: CGFloat = 0
 
     /// Directory where imported JARs are stored
@@ -139,6 +140,64 @@ class AppsListViewController: UIViewController,
             fab.heightAnchor.constraint(equalToConstant: 56),
         ])
 
+        // Author credits in background: 3 rows, centered between top and the red + button
+        let middleGuide = UILayoutGuide()
+        view.addLayoutGuide(middleGuide)
+        NSLayoutConstraint.activate([
+            middleGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            middleGuide.bottomAnchor.constraint(equalTo: fab.topAnchor),
+            middleGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            middleGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+
+        creditContainer.translatesAutoresizingMaskIntoConstraints = false
+        creditContainer.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
+        creditContainer.layer.cornerRadius = 14
+        creditContainer.layer.borderWidth = 1
+        creditContainer.layer.borderColor = UIColor(white: 0.88, alpha: 0.8).cgColor
+        creditContainer.layer.shadowColor = UIColor.black.cgColor
+        creditContainer.layer.shadowOpacity = 0.04
+        creditContainer.layer.shadowOffset = CGSize(width: 0, height: 2)
+        creditContainer.layer.shadowRadius = 6
+        view.addSubview(creditContainer)
+
+        let creditTitleLabel = UILabel()
+        creditTitleLabel.text = "J2ME IOS free tạo bởi BlackLotus"
+        creditTitleLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        creditTitleLabel.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0)
+        creditTitleLabel.textAlignment = .center
+
+        let fbButton = UIButton(type: .system)
+        fbButton.setTitle("https://www.facebook.com/blacklotus00x", for: .normal)
+        fbButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        fbButton.setTitleColor(UIColor(red: 0.09, green: 0.45, blue: 0.95, alpha: 1.0), for: .normal)
+        fbButton.addTarget(self, action: #selector(openFacebookTapped), for: .touchUpInside)
+
+        let zaloButton = UIButton(type: .system)
+        zaloButton.setTitle("Zalo: 0339143765", for: .normal)
+        zaloButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        zaloButton.setTitleColor(UIColor(red: 0.0, green: 0.52, blue: 0.88, alpha: 1.0), for: .normal)
+        zaloButton.addTarget(self, action: #selector(openZaloTapped), for: .touchUpInside)
+
+        let creditStack = UIStackView(arrangedSubviews: [creditTitleLabel, fbButton, zaloButton])
+        creditStack.axis = .vertical
+        creditStack.alignment = .center
+        creditStack.spacing = 4
+        creditStack.translatesAutoresizingMaskIntoConstraints = false
+        creditContainer.addSubview(creditStack)
+
+        NSLayoutConstraint.activate([
+            creditStack.topAnchor.constraint(equalTo: creditContainer.topAnchor, constant: 10),
+            creditStack.bottomAnchor.constraint(equalTo: creditContainer.bottomAnchor, constant: -10),
+            creditStack.leadingAnchor.constraint(equalTo: creditContainer.leadingAnchor, constant: 16),
+            creditStack.trailingAnchor.constraint(equalTo: creditContainer.trailingAnchor, constant: -16),
+
+            creditContainer.centerXAnchor.constraint(equalTo: middleGuide.centerXAnchor),
+            creditContainer.centerYAnchor.constraint(equalTo: middleGuide.centerYAnchor),
+        ])
+
+        view.bringSubviewToFront(fab)
+
         // Ensure games directory exists
         try? FileManager.default.createDirectory(atPath: Self.gamesDirectory,
                                                   withIntermediateDirectories: true)
@@ -175,6 +234,35 @@ class AppsListViewController: UIViewController,
         layout.itemSize = CGSize(width: cellWidth, height: 96)
         layout.sectionInset = UIEdgeInsets(top: 20, left: horizontalInset,
                                             bottom: 20, right: horizontalInset)
+    }
+
+    // ============================================================
+    // MARK: - Author Credits Actions
+    // ============================================================
+
+    @objc private func openFacebookTapped() {
+        if let url = URL(string: "https://www.facebook.com/blacklotus00x") {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+
+    @objc private func openZaloTapped() {
+        UIPasteboard.general.string = "0339143765"
+        if let url = URL(string: "https://zalo.me/0339143765") {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if scrollView == springboardCollectionView {
+            let offsetY = scrollView.contentOffset.y
+            if offsetY > 20 {
+                let alpha = max(0, 1.0 - (offsetY - 20) / 80.0)
+                creditContainer.alpha = alpha
+            } else {
+                creditContainer.alpha = 1.0
+            }
+        }
     }
 
     // ============================================================
