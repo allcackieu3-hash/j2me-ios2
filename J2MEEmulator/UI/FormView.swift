@@ -669,7 +669,7 @@ class FormView: UIView, UITextFieldDelegate {
 class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
-    private var items: [String] = []
+    private var items: [(title: String, isRunning: Bool)] = []
     private var selectedRow: Int = 0
     private let bottomButtonBar = UIStackView()
 
@@ -738,7 +738,9 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         commands.removeAll()
         let count = j2me_ui_get_list_item_count()
         for i in 0..<count {
-            items.append(String(cString: j2me_ui_get_list_item(Int32(i))))
+            let title = String(cString: j2me_ui_get_list_item(Int32(i)))
+            let isRunning = j2me_ui_is_list_item_running(Int32(i))
+            items.append((title: title, isRunning: isRunning))
         }
         selectedRow = 0
         tableView.reloadData()
@@ -853,20 +855,14 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         cell.backgroundColor = isSelected ? UIColor(red: 0.80, green: 0.84, blue: 0.98, alpha: 1.0) : .white
 
         var config = cell.defaultContentConfiguration()
-        var itemText = items[indexPath.row]
-        let isRunning = itemText.hasPrefix("▶") || itemText.contains("play")
-        if isRunning {
-            if itemText.hasPrefix("▶ ") {
-                itemText = String(itemText.dropFirst(2))
-            } else if itemText.hasPrefix("▶") {
-                itemText = String(itemText.dropFirst(1))
-            }
+        let item = items[indexPath.row]
+        if item.isRunning {
             config.image = UIImage(systemName: "play.fill")
             config.imageProperties.tintColor = UIColor(red: 0.30, green: 0.69, blue: 0.31, alpha: 1.0)
         } else {
             config.image = nil
         }
-        config.text = itemText
+        config.text = item.title
         config.textProperties.font = .systemFont(ofSize: 16, weight: .medium)
         config.textProperties.color = .black
 
@@ -878,8 +874,9 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         selectedRow = indexPath.row
         tableView.reloadData()
-        // Highlight row in J2ME List without automatically launching or jumping to game canvas
+        // Set selected index and trigger select action to run the game slot
         j2me_input_post_key(Int32(J2ME_UI_LIST_SET_INDEX), Int32(indexPath.row))
+        j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(indexPath.row))
     }
 
     @objc private func commandTapped(_ sender: UIButton) {

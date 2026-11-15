@@ -46,10 +46,10 @@ public class Display {
         if (d == null) return;
         Displayable old = current;
 
-        // If the user is actively viewing/editing a Form, TextBox, or List,
-        // do not let a background game thread call setCurrent(Canvas) to interrupt the user UI!
-        // ONLY allow switching to Canvas if triggered by user interaction (e.g. tapping "Quay lại" or selecting a list item).
-        if ((current instanceof Form || current instanceof TextBox || current instanceof List) && (d instanceof Canvas)) {
+        // If the user is actively viewing/editing a Form or TextBox ("Cài đặt cơ bản"),
+        // do not let a background timer thread call setCurrent(Canvas) to interrupt the user UI!
+        // ONLY allow switching to Canvas if triggered by user interaction (e.g. tapping "Quay lại").
+        if ((current instanceof Form || current instanceof TextBox) && (d instanceof Canvas)) {
             if (!isHandlingCommandAction) {
                 System.out.println("[Display] Blocked background setCurrent(Canvas) while user UI is active: " + current);
                 return;

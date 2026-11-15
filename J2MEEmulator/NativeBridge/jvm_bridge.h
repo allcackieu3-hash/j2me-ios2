@@ -49,6 +49,9 @@ int jvm_bridge_get_jvm_slot(void *jvm_ptr);
 /// Request graceful MIDlet stop for a slot.
 void jvm_bridge_request_stop_slot(int slot);
 
+/// Request graceful MIDlet stop for all slots.
+void jvm_bridge_request_stop_all(void);
+
 /// Check if stop has been requested for a slot.
 int jvm_bridge_is_slot_stop_requested(int slot);
 

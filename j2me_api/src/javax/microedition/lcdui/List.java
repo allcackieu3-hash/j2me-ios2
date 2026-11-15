@@ -89,11 +89,8 @@ public class List extends Screen implements Choice {
         for (int i = 0; i < strings.size(); i++) {
             String s = strings.get(i);
             Image img = (i < images.size()) ? images.get(i) : null;
-            if (img != null && img.isRunningIcon) {
-                NativeBridge.listAddItem("▶ " + s);
-            } else {
-                NativeBridge.listAddItem(s);
-            }
+            boolean isRunning = (img != null && img.isRunningIcon);
+            NativeBridge.listAddItem(s, isRunning);
         }
         ArrayList<Command> cmds = getCommands();
         for (int i = 0; i < cmds.size(); i++) {

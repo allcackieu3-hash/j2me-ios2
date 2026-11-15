@@ -84,6 +84,7 @@ class GameViewController: UIViewController {
         var saveRoot: String
         var icon: UIImage?
         var screenshot: UIImage?
+        var activeUI: Int = 0 // 0 = Canvas, 1 = Form, 2 = List, 3 = TextBox
     }
     var tabSessions: [TabSession] = []
     var tabButtons: [UIButton] = []
@@ -515,9 +516,18 @@ class GameViewController: UIViewController {
     private func selectTab(at index: Int) {
         guard index >= 0 && index < tabButtons.count else { return }
 
-        // Capture screenshot of current tab before switching
+        // Capture screenshot and UI state of current tab before switching
         if activeTabIndex < tabSessions.count {
             tabSessions[activeTabIndex].screenshot = takeSnapshot()
+            if !formView.isHidden {
+                tabSessions[activeTabIndex].activeUI = 1
+            } else if !listView.isHidden {
+                tabSessions[activeTabIndex].activeUI = 2
+            } else if !textBoxView.isHidden {
+                tabSessions[activeTabIndex].activeUI = 3
+            } else {
+                tabSessions[activeTabIndex].activeUI = 0
+            }
         }
 
         activeTabIndex = index
@@ -553,30 +563,35 @@ class GameViewController: UIViewController {
         let targetBtn = tabButtons[index]
         tabScrollView.scrollRectToVisible(targetBtn.frame, animated: true)
 
-        // Hide any subviews (Form, List, TextBox) left from previous tab so they don't leak into new tab
-        textBoxView.isHidden = true
-        formView.isHidden = true
-        listView.isHidden = true
-        emulatorView.isHidden = false
         decadeKeypadView?.isHidden = isKeypadHidden
         floatingShowKeypadBtn.isHidden = !isKeypadHidden
 
-        // Immediately isolate and show this tab's frame!
-        GameViewController.slotFrameLock.lock()
-        let cachedFrame = GameViewController.slotFrames[index]
-        GameViewController.slotFrameLock.unlock()
-
-        if let frame = cachedFrame {
-            emulatorView.displayImage(frame)
-            placeholderIconView?.alpha = 0
-        } else if let shot = session.screenshot?.cgImage {
-            emulatorView.displayImage(shot)
-            placeholderIconView?.alpha = 0
+        // Restore active UI state for this tab
+        if session.activeUI == 1 {
+            showFormView()
+        } else if session.activeUI == 2 {
+            showListView()
+        } else if session.activeUI == 3 {
+            showTextBoxView()
         } else {
-            // New slot has not produced any frame yet: clear canvas and show icon
-            emulatorView.layer.contents = nil
-            placeholderIconView?.image = session.icon
-            placeholderIconView?.alpha = 1.0
+            showCanvasView()
+            // Immediately isolate and show this tab's frame!
+            GameViewController.slotFrameLock.lock()
+            let cachedFrame = GameViewController.slotFrames[index]
+            GameViewController.slotFrameLock.unlock()
+
+            if let frame = cachedFrame {
+                emulatorView.displayImage(frame)
+                placeholderIconView?.alpha = 0
+            } else if let shot = session.screenshot?.cgImage {
+                emulatorView.displayImage(shot)
+                placeholderIconView?.alpha = 0
+            } else {
+                // New slot has not produced any frame yet: clear canvas and show icon
+                emulatorView.layer.contents = nil
+                placeholderIconView?.image = session.icon
+                placeholderIconView?.alpha = 1.0
+            }
         }
 
         showToast(message: "Chuyển sang Tab \(index + 1): \(session.appName)")
@@ -610,7 +625,8 @@ class GameViewController: UIViewController {
             gameId: gid,
             saveRoot: saveRoot,
             icon: icon,
-            screenshot: nil
+            screenshot: nil,
+            activeUI: 0
         )
         tabSessions.append(session)
         createTabButton(index: newSlot)
@@ -1510,7 +1526,9 @@ class GameViewController: UIViewController {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.runMIDlet()
             DispatchQueue.main.async {
-                self?.dismiss(animated: true)
+                if self?.presentingViewController != nil {
+                    self?.dismiss(animated: true)
+                }
             }
         }
     }
@@ -1538,12 +1556,34 @@ class GameViewController: UIViewController {
 
         let runResult = jvm_bridge_run_midlet(jarPath)
         print("[Swift] MIDlet run result: \(runResult)")
-        jvm_bridge_destroy()
+        jvm_bridge_destroy_slot(0)
     }
 
     @objc private func backTapped() {
         backButton.isEnabled = false
-        jvm_bridge_request_stop()
+        autoShutdownTimer?.invalidate()
+        autoShutdownTimer = nil
+        DecadeBackgroundKeeper.shared.setTreoActive(false)
+        UIApplication.shared.isIdleTimerDisabled = false
+
+        // 1. Signal stop to ALL slots
+        jvm_bridge_request_stop_all()
+
+        // 2. Wake up all slots from waiting on pollInputEvent
+        for s in 0..<32 {
+            j2me_input_post_key_slot(Int32(s), 0, 0)
+        }
+
+        // 3. Dismiss UI back to apps list immediately on main thread so it NEVER hangs/freezes!
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.dismiss(animated: true) {
+                // Deep cleanup of all JVMs in background
+                DispatchQueue.global(qos: .background).async {
+                    jvm_bridge_destroy_all()
+                }
+            }
+        }
     }
 
     // ============================================================

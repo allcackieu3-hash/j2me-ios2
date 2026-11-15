@@ -63,7 +63,7 @@ public class NativeBridge {
     public static native void formAddCommand(String label, int type, int priority, int id);
     public static native void formShow();
     public static native void showCanvas();
-    public static native void listAddItem(String text);
+    public static native void listAddItem(String text, boolean isRunning);
     public static native void setListType(int type);
     public static native void setAlertText(String text, int timeout);
     public static native String getTextBoxText();

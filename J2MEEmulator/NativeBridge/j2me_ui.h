@@ -51,6 +51,7 @@ int j2me_ui_get_command_type(int index);
 int j2me_ui_get_command_id(int index);
 int j2me_ui_get_list_item_count(void);
 const char *j2me_ui_get_list_item(int index);
+bool j2me_ui_is_list_item_running(int index);
 int j2me_ui_get_list_type(void);
 const char *j2me_ui_get_alert_text(void);
 int j2me_ui_get_alert_timeout(void);

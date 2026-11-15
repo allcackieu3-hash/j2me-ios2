@@ -45,6 +45,7 @@ static int g_form_type = 0; // 0=form, 1=list, 2=alert, 3=textbox
 
 // List items
 static char g_list_items[MAX_FORM_ITEMS][256];
+static int g_list_items_running[MAX_FORM_ITEMS];
 static int g_list_item_count = 0;
 static int g_list_type = 0; // IMPLICIT=3, EXCLUSIVE=1, MULTIPLE=2
 
@@ -275,6 +276,7 @@ static s32 n_listAddItem(Runtime *runtime, JClass *clazz) {
 
     JniEnv *env = runtime->jnienv;
     Instance *jtext = env->localvar_getRefer(runtime->localvar, 0);
+    s32 isRunning = env->localvar_getInt(runtime->localvar, 1);
 
     if (g_list_item_count >= MAX_FORM_ITEMS) return RUNTIME_STATUS_NORMAL;
     g_list_items[g_list_item_count][0] = '\0';
@@ -284,8 +286,16 @@ static s32 n_listAddItem(Runtime *runtime, JClass *clazz) {
         strncpy(g_list_items[g_list_item_count], utf8_cstr(u), 255);
         utf8_destroy(u);
     }
+    g_list_items_running[g_list_item_count] = (isRunning != 0) ? 1 : 0;
     g_list_item_count++;
     return RUNTIME_STATUS_NORMAL;
+}
+
+bool j2me_ui_is_list_item_running(int index) {
+    if (index >= 0 && index < g_list_item_count) {
+        return g_list_items_running[index] != 0;
+    }
+    return false;
 }
 
 static s32 n_setListType(Runtime *runtime, JClass *clazz) {
@@ -384,7 +394,7 @@ static java_native_method j2me_ui_methods[] = {
     {CLS, "formAddCommand",   "(Ljava/lang/String;III)V",                        n_formAddCommand},
     {CLS, "formShow",         "()V",                                             n_formShow},
     {CLS, "showCanvas",       "()V",                                             n_showCanvas},
-    {CLS, "listAddItem",      "(Ljava/lang/String;)V",                           n_listAddItem},
+    {CLS, "listAddItem",      "(Ljava/lang/String;Z)V",                          n_listAddItem},
     {CLS, "setListType",      "(I)V",                                            n_setListType},
     {CLS, "setAlertText",     "(Ljava/lang/String;I)V",                          n_setAlertText},
     {CLS, "platformRequest",  "(Ljava/lang/String;)V",                           n_platformRequest},

@@ -180,15 +180,20 @@ void jvm_bridge_destroy_slot(int slot) {
     pthread_mutex_lock(&g_slots_lock);
     MiniJVM *jvm = g_slots[slot].jvm;
     if (jvm) {
-        printf("[JVM Bridge] Destroying slot %d JVM\n", slot);
-        decade_proxy_disconnect_slot_sockets(slot);
-
-        jvm->collector->exit_flag = 1;
-        thread_stop_all(jvm);
-        jvm_destroy(jvm);
         g_slots[slot].jvm = NULL;
         atomic_store(&g_slots[slot].is_running, 0);
         atomic_store(&g_slots[slot].stop_requested, 0);
+        pthread_mutex_unlock(&g_slots_lock);
+
+        printf("[JVM Bridge] Destroying slot %d JVM\n", slot);
+        decade_proxy_disconnect_slot_sockets(slot);
+
+        if (jvm->collector) {
+            jvm->collector->exit_flag = 1;
+        }
+        thread_stop_all(jvm);
+        jvm_destroy(jvm);
+        return;
     }
     pthread_mutex_unlock(&g_slots_lock);
 }
@@ -213,6 +218,19 @@ void jvm_bridge_request_stop_slot(int slot) {
     if (slot >= 0 && slot < JVM_BRIDGE_MAX_SLOTS) {
         atomic_store(&g_slots[slot].stop_requested, 1);
         printf("[JVM Bridge] Stop requested for slot %d\n", slot);
+    }
+}
+
+void jvm_bridge_request_stop_all(void) {
+    printf("[JVM Bridge] Requesting stop for ALL slots\n");
+    for (int i = 0; i < JVM_BRIDGE_MAX_SLOTS; i++) {
+        atomic_store(&g_slots[i].stop_requested, 1);
+        pthread_mutex_lock(&g_slots_lock);
+        MiniJVM *jvm = g_slots[i].jvm;
+        if (jvm && jvm->collector) {
+            jvm->collector->exit_flag = 1;
+        }
+        pthread_mutex_unlock(&g_slots_lock);
     }
 }
 
