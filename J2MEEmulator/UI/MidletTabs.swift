@@ -11,7 +11,7 @@ import UIKit
 
 struct MidletTab: Equatable {
     let index: Int        // 1-based index (1, 2, 3...)
-    let name: String      // Display name (e.g. "1", "2", "Tab 1", etc.)
+    let name: String      // Display name (e.g. "1", "2", "Avatar", etc.)
     let prefix: String    // Package / class prefix (e.g. "a", "b", "c", etc.)
 }
 
@@ -26,7 +26,7 @@ class MidletTabs {
     }
 
     /// Read internal game tabs from a JAR file
-    static func read(from jarPath: String?) -> [MidletTab] {
+    static func read(from jarPath: String?, appName: String? = nil) -> [MidletTab] {
         guard let path = jarPath, !path.isEmpty else {
             return defaultTabs()
         }
@@ -37,12 +37,13 @@ class MidletTabs {
             return defaultTabs()
         }
 
-        return parseTabs(from: manifestText)
+        return parseTabs(from: manifestText, appName: appName)
     }
 
     /// Parse tabs from manifest text
-    static func parseTabs(from text: String) -> [MidletTab] {
-        var parsed: [MidletTab] = []
+    static func parseTabs(from text: String, appName: String? = nil) -> [MidletTab] {
+        var numberedTabs: [MidletTab] = []
+        var midletTabs: [MidletTab] = []
 
         let lines = text.components(separatedBy: .newlines)
         for rawLine in lines {
@@ -51,14 +52,14 @@ class MidletTabs {
             let key = String(line[..<colonIdx]).trimmingCharacters(in: .whitespaces)
             let val = String(line[line.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
 
-            // Pattern 1: Numbered index line "0: 1,/icon.png,a.bs" or "1: 2,/icon.png,b.bs"
+            // Pattern 1: Numbered index line "0: 1,/icon.png,a.bs"
             if let num = Int(key) {
                 let parts = val.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 let name = parts.count > 0 && !parts[0].isEmpty ? parts[0] : "\(num + 1)"
                 let cls = parts.count >= 3 ? parts[2] : (parts.count > 0 ? parts.last! : "")
                 let prefix = prefixOf(cls)
                 let tabPrefix = prefix.isEmpty ? "\(num + 1)" : prefix
-                parsed.append(MidletTab(index: num + 1, name: name, prefix: tabPrefix))
+                numberedTabs.append(MidletTab(index: num + 1, name: name, prefix: tabPrefix))
                 continue
             }
 
@@ -69,19 +70,42 @@ class MidletTabs {
                 let cls = parts.count >= 3 ? parts[2] : (parts.count > 0 ? parts.last! : "")
                 let prefix = prefixOf(cls)
                 let tabPrefix = prefix.isEmpty ? "\(mIdx)" : prefix
-                parsed.append(MidletTab(index: mIdx, name: name, prefix: tabPrefix))
+                midletTabs.append(MidletTab(index: mIdx, name: name, prefix: tabPrefix))
                 continue
             }
         }
 
-        if parsed.count > 1 {
-            // Sort by tab index
-            parsed.sort { $0.index < $1.index }
-            return parsed
+        // If game has numbered tabs (like x27 with 0: 1 ... 26: 27), use ONLY numbered tabs!
+        // In that case, MIDlet-1 is just the launcher class (e.g. MrQuyet launcher) and should not be a duplicate tab.
+        if numberedTabs.count > 0 {
+            numberedTabs.sort { $0.index < $1.index }
+            return numberedTabs
         }
 
-        // If manifest only has 1 or 0 midlet descriptors, game is a multi-tab slot mod (e.g. AngelChip)
-        // Return 27 default tabs matching standard AngelChip / MrQuyet / GameVn24h mod slots
+        // If game has multiple MIDlet entries (e.g. MIDlet-1, MIDlet-2...)
+        if midletTabs.count > 1 {
+            midletTabs.sort { $0.index < $1.index }
+            return midletTabs
+        }
+
+        // If only 1 MIDlet (like Avatar 250 or an AngelChip slot mod):
+        let cleanAppName = (appName ?? "").lowercased()
+        let isMultiTabMod = cleanAppName.contains("x6") || cleanAppName.contains("x12") ||
+                            cleanAppName.contains("x13") || cleanAppName.contains("x24") ||
+                            cleanAppName.contains("x27") || cleanAppName.contains("x50") ||
+                            cleanAppName.contains("angelchip") || cleanAppName.contains("mrquyet")
+
+        if isMultiTabMod {
+            return defaultTabs()
+        }
+
+        // For standard single game (like Avatar 250):
+        if let single = midletTabs.first {
+            let name = single.name.isEmpty ? (appName ?? "Avatar") : single.name
+            let prefix = single.prefix.isEmpty ? "a" : single.prefix
+            return [MidletTab(index: 1, name: name, prefix: prefix)]
+        }
+
         return defaultTabs()
     }
 

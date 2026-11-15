@@ -377,26 +377,36 @@ int jvm_bridge_get_tab_proxy(int slot, const char *tab_prefix, int *out_type, ch
         }
     }
 
-    // Interoperability fallback: if tab_prefix is 'a', check if registered as '1'
-    if (!found && isalpha((unsigned char)tab_prefix[0]) && tab_prefix[1] == '\0') {
-        char num_str[16];
-        snprintf(num_str, sizeof(num_str), "%d", 1 + (tolower((unsigned char)tab_prefix[0]) - 'a'));
-        for (int i = 0; i < g_slots[slot].tab_proxy_count; i++) {
-            const TabProxyRule *r = &g_slots[slot].tab_proxies[i];
-            if (strcmp(r->tab_prefix, num_str) == 0) {
-                found = r;
-                break;
+    // Interoperability fallback: if tab_prefix is 'a'..'z' or 'aa', check if registered as '1'..'27'
+    if (!found) {
+        char num_str[16] = {0};
+        if (isalpha((unsigned char)tab_prefix[0]) && tab_prefix[1] == '\0') {
+            snprintf(num_str, sizeof(num_str), "%d", 1 + (tolower((unsigned char)tab_prefix[0]) - 'a'));
+        } else if (strcasecmp(tab_prefix, "aa") == 0) {
+            snprintf(num_str, sizeof(num_str), "27");
+        }
+        if (num_str[0] != '\0') {
+            for (int i = 0; i < g_slots[slot].tab_proxy_count; i++) {
+                const TabProxyRule *r = &g_slots[slot].tab_proxies[i];
+                if (strcmp(r->tab_prefix, num_str) == 0) {
+                    found = r;
+                    break;
+                }
             }
         }
     }
 
-    // Interoperability fallback: if tab_prefix is '1', check if registered as 'a'
+    // Interoperability fallback: if tab_prefix is '1'..'27', check if registered as 'a'..'z' or 'aa'
     if (!found && isdigit((unsigned char)tab_prefix[0])) {
         int idx = atoi(tab_prefix);
+        char alpha_str[4] = {0};
         if (idx >= 1 && idx <= 26) {
-            char alpha_str[4];
             alpha_str[0] = (char)('a' + (idx - 1));
             alpha_str[1] = '\0';
+        } else if (idx == 27) {
+            strncpy(alpha_str, "aa", sizeof(alpha_str) - 1);
+        }
+        if (alpha_str[0] != '\0') {
             for (int i = 0; i < g_slots[slot].tab_proxy_count; i++) {
                 const TabProxyRule *r = &g_slots[slot].tab_proxies[i];
                 if (strcasecmp(r->tab_prefix, alpha_str) == 0) {
