@@ -2,28 +2,50 @@
 //  DecadeKeypadView.swift
 //  J2MEEmulator
 //
-//  1:1 Authentic KamenRider Decade virtual keypad:
-//  - Frosted silver/gray background (#ECEFF3)
-//  - Translucent rounded white buttons with slate lavender glyphs (#6D7CA8)
-//  - Exact 5 columns x 3 rows matching Android KamenRider Decade:
-//      Row 1: [ L ]  [ ↖ ]  [ ↑ ]  [ ↗ ]  [ R ]
-//      Row 2: (empty) [ ← ]  [ F ]  [ → ] (empty)
-//      Row 3: (empty) [ ↙ ]  [ ↓ ]  [ ↘ ] (empty)
+//  Authentic KamenRider Decade virtual keypad with full customization:
+//  - Pure directional keycodes (Canvas.UP=-1, DOWN=-2, LEFT=-3, RIGHT=-4, FIRE=-5, etc.)
+//    -> NEVER outputs numbers when navigating!
+//  - "Công tắc cấu trúc phím" (Layout switcher): Arrows, Numpad, Combined
+//  - "Ẩn các phím" (Key visibility toggle for diagonals, softkeys, fire)
+//  - Size & opacity customization
 //
 
 import UIKit
+
+enum DecadeKeypadLayout: Int {
+    case arrows = 0    // Decade 5x3 Directional Pad (Default)
+    case numpad = 1    // Phone Numpad (0-9, *, #)
+    case combined = 2  // Arrows + Numpad combined
+}
 
 class DecadeKeypadView: UIView {
 
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var repeatTimer: Timer?
-    private var activeKeyCode: Int32 = 0
-    private var activeSecondaryCode: Int32 = 0
+    private var activeCode1: Int32 = 0
+    private var activeCode2: Int32 = 0
 
     var onTextInputTapped: (() -> Void)?
     var onMenuTapped: (() -> Void)?
 
     private let mainStack = UIStackView()
+
+    // Customization state
+    var currentLayout: DecadeKeypadLayout = .arrows {
+        didSet { rebuildKeypad() }
+    }
+    var showDiagonalKeys: Bool = true {
+        didSet { rebuildKeypad() }
+    }
+    var showSoftKeys: Bool = true {
+        didSet { rebuildKeypad() }
+    }
+    var showFireKey: Bool = true {
+        didSet { rebuildKeypad() }
+    }
+    var keypadAlphaValue: CGFloat = 0.70 {
+        didSet { rebuildKeypad() }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -36,7 +58,6 @@ class DecadeKeypadView: UIView {
     }
 
     private func setupKeypad() {
-        // Frosted silver/gray background matching Android Decade (#ECEFF3)
         backgroundColor = UIColor(red: 0.925, green: 0.937, blue: 0.953, alpha: 1.0)
         layer.cornerRadius = 16
         layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
@@ -55,42 +76,138 @@ class DecadeKeypadView: UIView {
             mainStack.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8),
         ])
 
-        buildButtons()
+        rebuildKeypad()
     }
 
-    private func buildButtons() {
+    func rebuildKeypad() {
         mainStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        // Authentic Decade layout:
-        // Item is (title, primaryKeyCode, secondaryKeyCode, isEmpty)
-        let layout: [[(title: String, code: Int32, secCode: Int32, isEmpty: Bool)]] = [
+        switch currentLayout {
+        case .arrows:
+            buildArrowsLayout()
+        case .numpad:
+            buildNumpadLayout()
+        case .combined:
+            buildCombinedLayout()
+        }
+    }
+
+    // ============================================================
+    // MARK: - Layout 1: Decade Mũi tên (Arrows - Pure Navigation, NO NUMBERS)
+    // ============================================================
+
+    private func buildArrowsLayout() {
+        // Pure navigation keycodes (negative J2ME values, never characters/numbers):
+        // Canvas.UP = -1, DOWN = -2, LEFT = -3, RIGHT = -4, FIRE = -5, SOFT1 = -6, SOFT2 = -7
+        // Diagonals send dual navigation codes (e.g. -1 and -3 for UP+LEFT)
+
+        let upLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -3) : (0, 0)
+        let upRightCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -4) : (0, 0)
+        let downLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -3) : (0, 0)
+        let downRightCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -4) : (0, 0)
+
+        let soft1Code: Int32 = showSoftKeys ? -6 : 0
+        let soft2Code: Int32 = showSoftKeys ? -7 : 0
+        let fireCode: Int32 = showFireKey ? -5 : 0
+
+        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
             // Row 1: [ L ]  [ ↖ ]  [ ↑ ]  [ ↗ ]  [ R ]
             [
-                ("L", -6, 0, false),
-                ("↖", 49, 0, false),
-                ("↑", 50, -1, false),
-                ("↗", 51, 0, false),
-                ("R", -7, 0, false)
+                (showSoftKeys ? "L" : "", soft1Code, 0, !showSoftKeys),
+                (showDiagonalKeys ? "↖" : "", upLeftCodes.0, upLeftCodes.1, !showDiagonalKeys),
+                ("↑", -1, 0, false),
+                (showDiagonalKeys ? "↗" : "", upRightCodes.0, upRightCodes.1, !showDiagonalKeys),
+                (showSoftKeys ? "R" : "", soft2Code, 0, !showSoftKeys)
             ],
             // Row 2: (empty) [ ← ]  [ F ]  [ → ] (empty)
             [
                 ("", 0, 0, true),
-                ("←", 52, -3, false),
-                ("F", 53, -5, false),
-                ("→", 54, -4, false),
+                ("←", -3, 0, false),
+                (showFireKey ? "F" : "", fireCode, 0, !showFireKey),
+                ("→", -4, 0, false),
                 ("", 0, 0, true)
             ],
             // Row 3: (empty) [ ↙ ]  [ ↓ ]  [ ↘ ] (empty)
             [
                 ("", 0, 0, true),
-                ("↙", 55, 0, false),
-                ("↓", 56, -2, false),
-                ("↘", 57, 0, false),
+                (showDiagonalKeys ? "↙" : "", downLeftCodes.0, downLeftCodes.1, !showDiagonalKeys),
+                ("↓", -2, 0, false),
+                (showDiagonalKeys ? "↘" : "", downRightCodes.0, downRightCodes.1, !showDiagonalKeys),
                 ("", 0, 0, true)
             ]
         ]
 
-        let glyphColor = UIColor(red: 0.43, green: 0.49, blue: 0.66, alpha: 1.0) // Slate Lavender #6D7CA8
+        populateGrid(layout)
+    }
+
+    // ============================================================
+    // MARK: - Layout 2: Bàn phím số (Numpad Phone 0-9, *, #)
+    // ============================================================
+
+    private func buildNumpadLayout() {
+        // Standard phone numpad layout:
+        // Row 1: 1 (49), 2 (50), 3 (51)
+        // Row 2: 4 (52), 5 (53), 6 (54)
+        // Row 3: 7 (55), 8 (56), 9 (57)
+        // Row 4: * (42), 0 (48), # (35)
+        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
+            [
+                ("1", 49, 0, false),
+                ("2", 50, 0, false),
+                ("3", 51, 0, false)
+            ],
+            [
+                ("4", 52, 0, false),
+                ("5", 53, 0, false),
+                ("6", 54, 0, false)
+            ],
+            [
+                ("7", 55, 0, false),
+                ("8", 56, 0, false),
+                ("9", 57, 0, false)
+            ],
+            [
+                ("*", 42, 0, false),
+                ("0", 48, 0, false),
+                ("#", 35, 0, false)
+            ]
+        ]
+        populateGrid(layout)
+    }
+
+    // ============================================================
+    // MARK: - Layout 3: Kết hợp (Combined: Numpad + Arrows)
+    // ============================================================
+
+    private func buildCombinedLayout() {
+        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
+            [
+                ("1", 49, 0, false),
+                ("2", 50, 0, false),
+                ("3", 51, 0, false),
+                ("↑", -1, 0, false),
+                ("L", -6, 0, false)
+            ],
+            [
+                ("4", 52, 0, false),
+                ("5", 53, 0, false),
+                ("6", 54, 0, false),
+                ("F", -5, 0, false),
+                ("R", -7, 0, false)
+            ],
+            [
+                ("7", 55, 0, false),
+                ("8", 56, 0, false),
+                ("9", 57, 0, false),
+                ("↓", -2, 0, false),
+                ("#", 35, 0, false)
+            ]
+        ]
+        populateGrid(layout)
+    }
+
+    private func populateGrid(_ layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]]) {
+        let glyphColor = UIColor(red: 0.43, green: 0.49, blue: 0.66, alpha: 1.0)
 
         for row in layout {
             let rowStack = UIStackView()
@@ -107,16 +224,15 @@ class DecadeKeypadView: UIView {
                     continue
                 }
 
-                let btn = DecadeKeyButton(primaryCode: item.code, secCode: item.secCode)
+                let btn = DecadeKeyButton(c1: item.c1, c2: item.c2)
                 btn.setTitle(item.title, for: .normal)
                 btn.titleLabel?.font = .systemFont(ofSize: 20, weight: .semibold)
                 btn.setTitleColor(glyphColor, for: .normal)
-                btn.backgroundColor = UIColor(white: 1.0, alpha: 0.70)
+                btn.backgroundColor = UIColor(white: 1.0, alpha: keypadAlphaValue)
                 btn.layer.cornerRadius = 12
                 btn.layer.borderWidth = 1.0
                 btn.layer.borderColor = UIColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.60).cgColor
 
-                // Soft shadow for elevation
                 btn.layer.shadowColor = UIColor(red: 0.2, green: 0.25, blue: 0.35, alpha: 0.12).cgColor
                 btn.layer.shadowOffset = CGSize(width: 0, height: 1.5)
                 btn.layer.shadowRadius = 2.0
@@ -134,17 +250,14 @@ class DecadeKeypadView: UIView {
 
     @objc private func buttonDown(_ sender: DecadeKeyButton) {
         haptic.impactOccurred(intensity: 0.6)
-        activeKeyCode = sender.primaryCode
-        activeSecondaryCode = sender.secCode
+        activeCode1 = sender.c1
+        activeCode2 = sender.c2
 
-        // Press down highlight
         sender.backgroundColor = UIColor(white: 1.0, alpha: 0.95)
         sender.transform = CGAffineTransform(scaleX: 0.94, y: 0.94)
 
-        // Post key press
         sendKey(pressed: true)
 
-        // Repeat timer for holding down
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { [weak self] _ in
             self?.startRepeating()
@@ -155,22 +268,20 @@ class DecadeKeypadView: UIView {
         repeatTimer?.invalidate()
         repeatTimer = nil
 
-        // Release highlight
-        UIView.animate(withDuration: 0.1) {
-            sender.backgroundColor = UIColor(white: 1.0, alpha: 0.70)
+        UIView.animate(withDuration: 0.1) { [weak self] in
+            sender.backgroundColor = UIColor(white: 1.0, alpha: self?.keypadAlphaValue ?? 0.70)
             sender.transform = .identity
         }
 
-        // Post key release
         sendKey(pressed: false)
-        activeKeyCode = 0
-        activeSecondaryCode = 0
+        activeCode1 = 0
+        activeCode2 = 0
     }
 
     private func startRepeating() {
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
-            guard let self = self, self.activeKeyCode != 0 else { return }
+            guard let self = self, self.activeCode1 != 0 else { return }
             self.sendKey(pressed: true)
             usleep(15000)
             self.sendKey(pressed: false)
@@ -178,23 +289,24 @@ class DecadeKeypadView: UIView {
     }
 
     private func sendKey(pressed: Bool) {
-        guard activeKeyCode != 0 else { return }
         let eventType = pressed ? Int32(J2ME_INPUT_KEY_PRESSED) : Int32(J2ME_INPUT_KEY_RELEASED)
-        j2me_input_post_key(eventType, activeKeyCode)
-        if activeSecondaryCode != 0 {
-            j2me_input_post_key(eventType, activeSecondaryCode)
+        if activeCode1 != 0 {
+            j2me_input_post_key(eventType, activeCode1)
+        }
+        if activeCode2 != 0 {
+            j2me_input_post_key(eventType, activeCode2)
         }
     }
 }
 
 // Custom UIButton holding keycodes
 private class DecadeKeyButton: UIButton {
-    let primaryCode: Int32
-    let secCode: Int32
+    let c1: Int32
+    let c2: Int32
 
-    init(primaryCode: Int32, secCode: Int32) {
-        self.primaryCode = primaryCode
-        self.secCode = secCode
+    init(c1: Int32, c2: Int32) {
+        self.c1 = c1
+        self.c2 = c2
         super.init(frame: .zero)
     }
 

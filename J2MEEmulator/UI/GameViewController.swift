@@ -6,10 +6,11 @@
 //  - Top Toolbar: Title ("x27" / "Tài khoản"), [++], [+], [⌨], [📷], [⋮]
 //  - Tab Strip: Dark navy strip (#1C2534) with active blue tab [ 1 ] (#1E69D2)
 //  - Full-screen high-resolution Canvas between tab strip and keypad
-//  - Authentic KamenRider Decade Virtual Keypad (frosted silver, 5x3 keys, periwinkle glyphs)
-//  - Native full-screen TextBox text input with "✓" (V) Done button to dismiss keyboard
-//  - Native List/Form screen with red softkeys (MENU, THOÁT) matching AngelChip Menu
-//  - 3-Dot Menu matching all 12 Android Decade features
+//  - Authentic KamenRider Decade Virtual Keypad (pure directional keycodes, no accidental numbers!)
+//  - "Bàn phím ảo" menu: Công tắc cấu trúc phím, Ẩn/Hiện phím, Kích thước, Độ mờ
+//  - In-game TextBox with "✓" (V) Done button to dismiss keyboard
+//  - AngelChip Menu with red softkeys (MENU, THOÁT)
+//  - Double-tap on canvas removed: Chat input ONLY opens when tapping [⌨] button
 //
 
 import UIKit
@@ -51,10 +52,14 @@ class GameViewController: UIViewController {
 
     // Decade UI components
     private var decadeKeypadView: DecadeKeypadView?
+    private var keypadHeightConstraint: NSLayoutConstraint?
     private let topToolbar = UIView()
     private let titleLabel = UILabel()
     private let tabStripContainer = UIView()
     private let tabStrip = UIStackView()
+
+    // Quick floating unhide keypad button
+    private let floatingShowKeypadBtn = UIButton(type: .system)
 
     // Toolbar action buttons
     private let multiTabBtn = UIButton(type: .system)
@@ -70,6 +75,8 @@ class GameViewController: UIViewController {
     // Decade state
     private var isKeepAwake = false
     private var isAutoCleanRam = true
+    private var isKeypadHidden = false
+    private var keypadCurrentHeight: CGFloat = 245
     private var autoShutdownTimer: Timer?
 
     init(jarPath: String, appName: String, appIcon: UIImage,
@@ -151,12 +158,8 @@ class GameViewController: UIViewController {
             }
         }
 
-        // Double-tap on canvas triggers quick Text Input Dialog
-        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(promptTextInput))
-        doubleTap.numberOfTapsRequired = 2
-        doubleTap.delaysTouchesBegan = false
-        doubleTap.cancelsTouchesInView = false
-        emulatorView.addGestureRecognizer(doubleTap)
+        // NOTE: Double-tap on canvas is deliberately REMOVED so gameplay is never interrupted.
+        // The [⌨] button in the top toolbar opens text input when desired.
 
         // Register native callbacks
         setGlobalEmulatorView(emulatorView)
@@ -234,6 +237,18 @@ class GameViewController: UIViewController {
         self.decadeKeypadView = keypad
         view.addSubview(keypad)
 
+        // Floating unhide keypad button (visible when keypad is hidden)
+        floatingShowKeypadBtn.setTitle("⌨ Bật phím", for: .normal)
+        floatingShowKeypadBtn.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        floatingShowKeypadBtn.setTitleColor(.white, for: .normal)
+        floatingShowKeypadBtn.backgroundColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 0.85)
+        floatingShowKeypadBtn.layer.cornerRadius = 16
+        floatingShowKeypadBtn.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        floatingShowKeypadBtn.addTarget(self, action: #selector(toggleKeypadVisibility), for: .touchUpInside)
+        floatingShowKeypadBtn.isHidden = true
+        floatingShowKeypadBtn.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(floatingShowKeypadBtn)
+
         // 4. Game Canvas (fills between tab strip and keypad)
         emulatorView.translatesAutoresizingMaskIntoConstraints = false
         emulatorView.backgroundColor = .black
@@ -245,6 +260,9 @@ class GameViewController: UIViewController {
             view.addSubview(v)
             v.isHidden = true
         }
+
+        let heightConstraint = keypad.heightAnchor.constraint(equalToConstant: keypadCurrentHeight)
+        self.keypadHeightConstraint = heightConstraint
 
         NSLayoutConstraint.activate([
             // Top Toolbar pinned below Safe Area
@@ -273,7 +291,11 @@ class GameViewController: UIViewController {
             keypad.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             keypad.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             keypad.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            keypad.heightAnchor.constraint(equalToConstant: 245),
+            heightConstraint,
+
+            // Floating unhide keypad button
+            floatingShowKeypadBtn.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -14),
+            floatingShowKeypadBtn.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14),
 
             // Game Canvas fills between Tab Strip and Keypad
             emulatorView.topAnchor.constraint(equalTo: tabStripContainer.bottomAnchor),
@@ -301,6 +323,7 @@ class GameViewController: UIViewController {
         view.bringSubviewToFront(topToolbar)
         view.bringSubviewToFront(tabStripContainer)
         view.bringSubviewToFront(keypad)
+        view.bringSubviewToFront(floatingShowKeypadBtn)
     }
 
     private func styleToolbarButton(_ btn: UIButton, title: String, action: Selector) {
@@ -348,17 +371,22 @@ class GameViewController: UIViewController {
         softKeyHaptic.impactOccurred(intensity: 0.6)
         let alert = UIAlertController(title: "KamenRider Decade Menu", message: appName, preferredStyle: .actionSheet)
 
-        // 1. Thoát
+        // 1. Mục Bàn phím ảo cốt lõi của Decade
+        alert.addAction(UIAlertAction(title: "⌨ Bàn phím ảo & Cấu trúc phím", style: .default) { [weak self] _ in
+            self?.showVirtualKeyboardMenu()
+        })
+
+        // 2. Thoát
         alert.addAction(UIAlertAction(title: "✕ Thoát game về danh sách", style: .destructive) { [weak self] _ in
             self?.backTapped()
         })
 
-        // 2. Ẩn ứng dụng
+        // 3. Ẩn ứng dụng
         alert.addAction(UIAlertAction(title: "Ẩn ứng dụng", style: .default) { _ in
             UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
         })
 
-        // 3. Treo tắt màn (Sleep prevention checkbox)
+        // 4. Treo tắt màn (Sleep prevention checkbox)
         let keepAwakeTitle = (isKeepAwake ? "✓ " : "   ") + "Treo tắt màn (Giữ sáng / Chạy nền)"
         alert.addAction(UIAlertAction(title: keepAwakeTitle, style: .default) { [weak self] _ in
             guard let self = self else { return }
@@ -367,22 +395,22 @@ class GameViewController: UIViewController {
             self.showToast(message: self.isKeepAwake ? "Đã bật treo tắt màn" : "Đã tắt treo tắt màn")
         })
 
-        // 4. Hẹn giờ tự tắt
+        // 5. Hẹn giờ tự tắt
         alert.addAction(UIAlertAction(title: "⏰ Hẹn giờ tự tắt", style: .default) { [weak self] _ in
             self?.promptShutdownTimer()
         })
 
-        // 5. Tiết kiệm pin
+        // 6. Tiết kiệm pin
         alert.addAction(UIAlertAction(title: "Tiết kiệm pin (Cố định 30 FPS)", style: .default) { [weak self] _ in
             self?.showToast(message: "Đã kích hoạt chế độ tiết kiệm pin (30 FPS)")
         })
 
-        // 6. Lưu log
+        // 7. Lưu log
         alert.addAction(UIAlertAction(title: "Lưu log", style: .default) { [weak self] _ in
             self?.showToast(message: "Đã xuất log hệ thống thành công")
         })
 
-        // 7. Tự động dọn bộ nhớ
+        // 8. Tự động dọn bộ nhớ
         let cleanTitle = (isAutoCleanRam ? "✓ " : "   ") + "Tự động dọn bộ nhớ"
         alert.addAction(UIAlertAction(title: cleanTitle, style: .default) { [weak self] _ in
             guard let self = self else { return }
@@ -390,24 +418,23 @@ class GameViewController: UIViewController {
             self.showToast(message: self.isAutoCleanRam ? "Đã bật tự động dọn RAM" : "Đã tắt tự động dọn RAM")
         })
 
-        // 8. Giới hạn FPS
+        // 9. Giới hạn FPS
         alert.addAction(UIAlertAction(title: "Giới hạn FPS (15 / 30 / 60)", style: .default) { [weak self] _ in
             self?.promptFPSLimit()
         })
 
-        // 9. Khoá xoay màn hình
+        // 10. Khoá xoay màn hình
         alert.addAction(UIAlertAction(title: "✓ Khoá xoay màn hình (Dọc)", style: .default) { [weak self] _ in
             self?.showToast(message: "Màn hình đã được khoá dọc cố định")
         })
 
-        // 10. Thay IP Phiên Bản
+        // 11. Thay IP Phiên Bản
         alert.addAction(UIAlertAction(title: "Thay IP Phiên Bản", style: .default) { [weak self] _ in
             self?.promptChangeServerIP()
         })
 
         alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
 
-        // iPad popover support
         if let popover = alert.popoverPresentationController {
             popover.sourceView = menuBtn
             popover.sourceRect = menuBtn.bounds
@@ -416,6 +443,185 @@ class GameViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    // ============================================================
+    // MARK: - Menu Bàn phím ảo cốt lõi của Decade
+    // ============================================================
+
+    private func showVirtualKeyboardMenu() {
+        let alert = UIAlertController(title: "Bàn phím ảo Decade", message: "Tuỳ chỉnh bố cục, kích thước và phím bấm", preferredStyle: .actionSheet)
+
+        // 1. Ẩn / Hiện bàn phím
+        let hideTitle = isKeypadHidden ? "👁 Hiện bàn phím ảo" : "👁 Ẩn bàn phím ảo"
+        alert.addAction(UIAlertAction(title: hideTitle, style: .default) { [weak self] _ in
+            self?.toggleKeypadVisibility()
+        })
+
+        // 2. Công tắc cấu trúc phím
+        alert.addAction(UIAlertAction(title: "🔄 Công tắc cấu trúc phím", style: .default) { [weak self] _ in
+            self?.showLayoutSwitchDialog()
+        })
+
+        // 3. Tuỳ chỉnh kích thước bàn phím
+        alert.addAction(UIAlertAction(title: "📐 Tuỳ chỉnh kích thước phím", style: .default) { [weak self] _ in
+            self?.showKeypadSizeDialog()
+        })
+
+        // 4. Độ trong suốt bàn phím
+        alert.addAction(UIAlertAction(title: "💧 Độ mờ / Trong suốt bàn phím", style: .default) { [weak self] _ in
+            self?.showKeypadOpacityDialog()
+        })
+
+        // 5. Ẩn các phím lẻ
+        alert.addAction(UIAlertAction(title: "✂ Ẩn / Hiện từng phím bấm", style: .default) { [weak self] _ in
+            self?.showIndividualKeysToggleDialog()
+        })
+
+        // 6. Đặt lại bố trí mặc định
+        alert.addAction(UIAlertAction(title: "↺ Đặt lại bố trí mặc định", style: .destructive) { [weak self] _ in
+            guard let self = self, let keypad = self.decadeKeypadView else { return }
+            keypad.currentLayout = .arrows
+            keypad.showDiagonalKeys = true
+            keypad.showSoftKeys = true
+            keypad.showFireKey = true
+            keypad.keypadAlphaValue = 0.70
+            self.setKeypadHeight(245)
+            self.isKeypadHidden = false
+            self.updateKeypadVisibility()
+            self.showToast(message: "Đã đặt lại bàn phím mặc định")
+        })
+
+        alert.addAction(UIAlertAction(title: "Quay lại", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = menuBtn
+            popover.sourceRect = menuBtn.bounds
+        }
+
+        present(alert, animated: true)
+    }
+
+    @objc private func toggleKeypadVisibility() {
+        isKeypadHidden.toggle()
+        updateKeypadVisibility()
+        showToast(message: isKeypadHidden ? "Đã ẩn bàn phím ảo" : "Đã hiện bàn phím ảo")
+    }
+
+    private func updateKeypadVisibility() {
+        decadeKeypadView?.isHidden = isKeypadHidden
+        floatingShowKeypadBtn.isHidden = !isKeypadHidden
+        keypadHeightConstraint?.constant = isKeypadHidden ? 0 : keypadCurrentHeight
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    private func setKeypadHeight(_ height: CGFloat) {
+        keypadCurrentHeight = height
+        if !isKeypadHidden {
+            keypadHeightConstraint?.constant = height
+            UIView.animate(withDuration: 0.2) {
+                self.view.layoutIfNeeded()
+            }
+        }
+    }
+
+    // Công tắc cấu trúc phím
+    private func showLayoutSwitchDialog() {
+        let alert = UIAlertController(title: "Công tắc cấu trúc phím", message: "Chọn kiểu bàn phím mong muốn:", preferredStyle: .alert)
+
+        alert.addAction(UIAlertAction(title: "1. Decade Mũi tên (Mặc định - Điều hướng 8 chiều)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.currentLayout = .arrows
+            self?.showToast(message: "Đã chuyển sang: Bố cục Mũi tên Decade")
+        })
+
+        alert.addAction(UIAlertAction(title: "2. Bàn phím số (Numpad 0-9, *, #)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.currentLayout = .numpad
+            self?.showToast(message: "Đã chuyển sang: Bàn phím số (0-9)")
+        })
+
+        alert.addAction(UIAlertAction(title: "3. Kết hợp (Mũi tên & Phím số)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.currentLayout = .combined
+            self?.showToast(message: "Đã chuyển sang: Kết hợp Mũi tên & Số")
+        })
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    // Tuỳ chỉnh kích thước bàn phím
+    private func showKeypadSizeDialog() {
+        let alert = UIAlertController(title: "Tuỳ chỉnh kích thước bàn phím", message: "Chọn chiều cao phù hợp với tay:", preferredStyle: .alert)
+
+        alert.addAction(UIAlertAction(title: "Nhỏ gọn (210pt)", style: .default) { [weak self] _ in
+            self?.setKeypadHeight(210)
+            self?.showToast(message: "Kích thước: Nhỏ gọn")
+        })
+        alert.addAction(UIAlertAction(title: "Vừa phải (245pt - Mặc định)", style: .default) { [weak self] _ in
+            self?.setKeypadHeight(245)
+            self?.showToast(message: "Kích thước: Vừa phải")
+        })
+        alert.addAction(UIAlertAction(title: "Lớn (290pt)", style: .default) { [weak self] _ in
+            self?.setKeypadHeight(290)
+            self?.showToast(message: "Kích thước: Lớn")
+        })
+        alert.addAction(UIAlertAction(title: "Rất lớn (330pt)", style: .default) { [weak self] _ in
+            self?.setKeypadHeight(330)
+            self?.showToast(message: "Kích thước: Rất lớn")
+        })
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    // Độ mờ / trong suốt
+    private func showKeypadOpacityDialog() {
+        let alert = UIAlertController(title: "Độ mờ bàn phím ảo", message: "Chọn mức độ trong suốt của phím:", preferredStyle: .alert)
+
+        alert.addAction(UIAlertAction(title: "Trong suốt cao (40%)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.keypadAlphaValue = 0.40
+            self?.showToast(message: "Đã chỉnh độ mờ: 40%")
+        })
+        alert.addAction(UIAlertAction(title: "Vừa phải (70% - Mặc định)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.keypadAlphaValue = 0.70
+            self?.showToast(message: "Đã chỉnh độ mờ: 70%")
+        })
+        alert.addAction(UIAlertAction(title: "Đậm nét (100%)", style: .default) { [weak self] _ in
+            self?.decadeKeypadView?.keypadAlphaValue = 1.00
+            self?.showToast(message: "Đã chỉnh độ mờ: 100%")
+        })
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    // Ẩn / Hiện từng phím
+    private func showIndividualKeysToggleDialog() {
+        guard let keypad = decadeKeypadView else { return }
+        let alert = UIAlertController(title: "Ẩn / Hiện từng phím", message: "Bật hoặc tắt các nhóm phím theo nhu cầu:", preferredStyle: .alert)
+
+        let diagTitle = (keypad.showDiagonalKeys ? "✓ " : "   ") + "Phím chéo (↖, ↗, ↙, ↘)"
+        alert.addAction(UIAlertAction(title: diagTitle, style: .default) { [weak self] _ in
+            keypad.showDiagonalKeys.toggle()
+            self?.showToast(message: keypad.showDiagonalKeys ? "Đã hiện phím chéo" : "Đã ẩn phím chéo")
+        })
+
+        let softTitle = (keypad.showSoftKeys ? "✓ " : "   ") + "Phím chức năng (L, R)"
+        alert.addAction(UIAlertAction(title: softTitle, style: .default) { [weak self] _ in
+            keypad.showSoftKeys.toggle()
+            self?.showToast(message: keypad.showSoftKeys ? "Đã hiện phím L, R" : "Đã ẩn phím L, R")
+        })
+
+        let fireTitle = (keypad.showFireKey ? "✓ " : "   ") + "Phím giữa F (Chọn / Đánh)"
+        alert.addAction(UIAlertAction(title: fireTitle, style: .default) { [weak self] _ in
+            keypad.showFireKey.toggle()
+            self?.showToast(message: keypad.showFireKey ? "Đã hiện phím F" : "Đã ẩn phím F")
+        })
+
+        alert.addAction(UIAlertAction(title: "Xong", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    // Hẹn giờ tự tắt
     private func promptShutdownTimer() {
         let alert = UIAlertController(title: "⏰ Hẹn giờ tự tắt game", message: "Chọn thời gian sau đó tự động đóng game:", preferredStyle: .alert)
         for mins in [15, 30, 60, 120] {
@@ -436,6 +642,7 @@ class GameViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    // Giới hạn FPS
     private func promptFPSLimit() {
         let alert = UIAlertController(title: "Giới hạn FPS", message: "Chọn tốc độ khung hình mong muốn:", preferredStyle: .alert)
         for fps in [60, 30, 15] {
@@ -443,10 +650,14 @@ class GameViewController: UIViewController {
                 self?.showToast(message: "Đã chuyển giới hạn sang \(fps) FPS")
             })
         }
+        alert.addAction(UIAlertAction(title: "Không giới hạn", style: .default) { [weak self] _ in
+            self?.showToast(message: "Đã bật FPS không giới hạn")
+        })
         alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
         present(alert, animated: true)
     }
 
+    // Thay IP Phiên Bản
     private func promptChangeServerIP() {
         let alert = UIAlertController(title: "Thay IP Phiên Bản", message: "Nhập IP hoặc domain server mong muốn:", preferredStyle: .alert)
         alert.addTextField { tf in
@@ -538,7 +749,6 @@ class GameViewController: UIViewController {
     }
 
     private func sendTextToMIDlet(_ text: String, sendEnter: Bool = false) {
-        // Also update native TextBox buffer
         text.withCString { cstr in
             j2me_ui_set_textbox_text(cstr)
         }
@@ -554,11 +764,11 @@ class GameViewController: UIViewController {
             }
             if sendEnter {
                 usleep(50000)
-                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 53)
-                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 10)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), -5) // Canvas.FIRE
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_PRESSED), 10) // '\n'
                 usleep(20000)
                 j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), 10)
-                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), 53)
+                j2me_input_post_key(Int32(J2ME_INPUT_KEY_RELEASED), -5)
             }
         }
     }
@@ -586,7 +796,8 @@ class GameViewController: UIViewController {
     func showCanvasView() {
         titleLabel.text = appName
         emulatorView.isHidden = false
-        decadeKeypadView?.isHidden = false
+        decadeKeypadView?.isHidden = isKeypadHidden
+        floatingShowKeypadBtn.isHidden = !isKeypadHidden
         textBoxView.isHidden = true
         formView.isHidden = true
         listView.isHidden = true
@@ -599,6 +810,7 @@ class GameViewController: UIViewController {
         textBoxView.isHidden = false
         emulatorView.isHidden = true
         decadeKeypadView?.isHidden = true
+        floatingShowKeypadBtn.isHidden = true
         formView.isHidden = true
         listView.isHidden = true
         view.bringSubviewToFront(textBoxView)
@@ -611,6 +823,7 @@ class GameViewController: UIViewController {
         formView.isHidden = false
         emulatorView.isHidden = true
         decadeKeypadView?.isHidden = true
+        floatingShowKeypadBtn.isHidden = true
         textBoxView.isHidden = true
         listView.isHidden = true
         view.bringSubviewToFront(formView)
@@ -623,6 +836,7 @@ class GameViewController: UIViewController {
         listView.isHidden = false
         emulatorView.isHidden = true
         decadeKeypadView?.isHidden = true
+        floatingShowKeypadBtn.isHidden = true
         textBoxView.isHidden = true
         formView.isHidden = true
         view.bringSubviewToFront(listView)
