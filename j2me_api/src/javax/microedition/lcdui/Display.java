@@ -74,7 +74,9 @@ public class Display {
 
         if (old instanceof Canvas && old != d) {
             ((Canvas) old).hideNotify();
-            ((Canvas) old).destroyContext();
+            // Do NOT destroyContext() here: background game threads continue running
+            // while Forms/Lists are presented. Destroying nativeContext causes null pointer/crashes
+            // in game thread repaints, forcing MIDlets to abort back to the Canvas.
         }
     }
 

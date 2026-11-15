@@ -534,7 +534,8 @@ class FormView: UIView, UITextFieldDelegate {
             flags = parts[2].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "1" }
         }
 
-        let choiceType = j2me_ui_get_form_item_param1(Int32(index)) // 1=EXCLUSIVE, 2=MULTIPLE, 4=POPUP
+        // ChoiceGroup choiceType was passed in param2 (maxSize was param1)
+        let choiceType = j2me_ui_get_form_item_param2(Int32(index)) // 1=EXCLUSIVE, 2=MULTIPLE, 4=POPUP
 
         if (choiceType == 1 || choiceType == 4) && options.count > 0 && options.count <= 3 {
             // Segmented control for 2-3 options
@@ -617,7 +618,7 @@ class FormView: UIView, UITextFieldDelegate {
         var parts = raw.components(separatedBy: "\n")
         while parts.count < 3 { parts.append("") }
 
-        let choiceType = j2me_ui_get_form_item_param1(Int32(itemIndex))
+        let choiceType = j2me_ui_get_form_item_param2(Int32(itemIndex))
         let options = parts[1].components(separatedBy: "\t")
         var flags = parts[2].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "1" }
         while flags.count < options.count { flags.append(false) }

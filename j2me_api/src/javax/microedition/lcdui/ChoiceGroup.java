@@ -27,7 +27,7 @@ public class ChoiceGroup extends Item implements Choice {
     public void setSelectedIndex(int i, boolean s) {
         if (choiceType==EXCLUSIVE) for (int j=0;j<selected.size();j++) selected.set(j,Boolean.FALSE);
         if (i >= 0 && i < selected.size()) selected.set(i,s);
-        if (owner != null && owner.isShown()) owner.showNative();
+        // Do not call owner.showNative() here to avoid recursive re-renders during native sync
     }
     public int size() { return strings.size(); }
     public int getSelectedFlags(boolean[] a) { for(int i=0;i<a.length&&i<selected.size();i++) a[i]=selected.get(i); return selected.size(); }

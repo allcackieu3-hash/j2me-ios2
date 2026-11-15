@@ -58,6 +58,16 @@ class GameViewController: UIViewController {
     private let tabStripContainer = UIView()
     private let tabScrollView = UIScrollView()
     private let tabStrip = UIStackView()
+    struct TabSession {
+        let slotIndex: Int
+        var jarPath: String
+        var appName: String
+        var gameId: String
+        var saveRoot: String
+        var icon: UIImage?
+        var screenshot: UIImage?
+    }
+    private var tabSessions: [TabSession] = []
     private var tabButtons: [UIButton] = []
     private var activeTabIndex: Int = 0
 
@@ -246,8 +256,16 @@ class GameViewController: UIViewController {
             tabStrip.heightAnchor.constraint(equalTo: tabScrollView.heightAnchor),
         ])
 
-        // Add initial Tab 1
-        addTabs(count: 1)
+        // Initialize Tab 1 session
+        let initialGid = appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.path
+        let initialSaveRoot = docs + "/Games Data/" + initialGid
+        try? FileManager.default.createDirectory(atPath: initialSaveRoot, withIntermediateDirectories: true)
+        tabSessions = [
+            TabSession(slotIndex: 0, jarPath: jarPath, appName: appName, gameId: initialGid, saveRoot: initialSaveRoot, icon: appIcon, screenshot: nil)
+        ]
+        createTabButton(index: 0)
+        selectTab(at: 0)
 
         // 3. Virtual Keypad at bottom
         let keypad = DecadeKeypadView()
@@ -370,26 +388,17 @@ class GameViewController: UIViewController {
     // MARK: - Tab Management (+ and ++)
     // ============================================================
 
-    func addTabs(count: Int) {
-        let currentTotal = tabButtons.count
-        let newTotal = min(100, currentTotal + count)
-        guard newTotal > currentTotal else { return }
+    private func createTabButton(index: Int) {
+        let tabBtn = UIButton(type: .custom)
+        tabBtn.setTitle("\(index + 1)", for: .normal)
+        tabBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        tabBtn.layer.cornerRadius = 4
+        tabBtn.contentEdgeInsets = UIEdgeInsets(top: 4, left: 14, bottom: 4, right: 14)
+        tabBtn.tag = index
+        tabBtn.addTarget(self, action: #selector(tabButtonTapped(_:)), for: .touchUpInside)
 
-        for i in currentTotal..<newTotal {
-            let tabBtn = UIButton(type: .system)
-            tabBtn.setTitle("\(i + 1)", for: .normal)
-            tabBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
-            tabBtn.layer.cornerRadius = 4
-            tabBtn.contentEdgeInsets = UIEdgeInsets(top: 4, left: 14, bottom: 4, right: 14)
-            tabBtn.tag = i
-            tabBtn.addTarget(self, action: #selector(tabButtonTapped(_:)), for: .touchUpInside)
-
-            tabStrip.addArrangedSubview(tabBtn)
-            tabButtons.append(tabBtn)
-        }
-
-        // Switch to the latest tab
-        selectTab(at: newTotal - 1)
+        tabStrip.addArrangedSubview(tabBtn)
+        tabButtons.append(tabBtn)
     }
 
     @objc private func tabButtonTapped(_ sender: UIButton) {
@@ -398,7 +407,22 @@ class GameViewController: UIViewController {
 
     private func selectTab(at index: Int) {
         guard index >= 0 && index < tabButtons.count else { return }
+
+        // Capture screenshot of current tab before switching
+        if activeTabIndex < tabSessions.count {
+            tabSessions[activeTabIndex].screenshot = takeSnapshot()
+        }
+
         activeTabIndex = index
+        let session = (index < tabSessions.count) ? tabSessions[index] : tabSessions.first!
+
+        // Dynamically update save root for data isolation (-tabN)
+        session.saveRoot.withCString { cstr in
+            jvm_bridge_set_save_root(cstr)
+        }
+
+        // Update top bar title
+        titleLabel.text = "\(session.appName) (Tab \(index + 1))"
 
         for (i, btn) in tabButtons.enumerated() {
             if i == index {
@@ -416,33 +440,48 @@ class GameViewController: UIViewController {
 
         // Inform J2ME engine / AngelChip about the slot selection
         j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(index))
-        showToast(message: "Chuyển sang Tab \(index + 1)")
+
+        // Update floating bubble info
+        DecadeFloatingBubble.shared.setGameInfo(
+            name: session.appName,
+            icon: session.icon,
+            tabNumber: index + 1
+        )
+
+        showToast(message: "Chuyển sang Tab \(index + 1): \(session.appName)")
     }
 
-    @objc private func multiTabTapped() {
-        let maxAvailable = 100 - tabButtons.count
-        if maxAvailable <= 0 {
-            showToast(message: "Đã đạt tối đa 100 tab")
-            return
+    private func addNewTab(jarPath: String, appName: String, icon: UIImage) {
+        let newSlot = tabButtons.count
+        let gid = appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.path
+
+        // Data isolation logic:
+        // If this game was already opened in any previous tab, or slot > 0, isolate into -tab(N)
+        let sameGameCount = tabSessions.filter { $0.gameId == gid }.count
+        let saveRoot: String
+        if sameGameCount == 0 && newSlot == 0 {
+            saveRoot = docs + "/Games Data/" + gid
+        } else {
+            saveRoot = docs + "/Games Data/" + gid + "-tab\(newSlot + 1)"
         }
-        let alert = UIAlertController(title: "Mở nhiều tab", message: "Nhập số tab muốn thêm (tối đa \(maxAvailable) tab):", preferredStyle: .alert)
-        alert.addTextField { tf in
-            tf.text = String(min(5, maxAvailable))
-            tf.keyboardType = .numberPad
-        }
-        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Mở", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            let count = Int(alert.textFields?.first?.text?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
-            let safeCount = max(0, min(count, maxAvailable))
-            if safeCount > 0 {
-                self.addTabs(count: safeCount)
-                self.showToast(message: "Đã mở thêm \(safeCount) tab mới")
-            } else {
-                self.showToast(message: "Số lượng tab không hợp lệ")
-            }
-        })
-        present(alert, animated: true)
+        try? FileManager.default.createDirectory(atPath: saveRoot, withIntermediateDirectories: true)
+
+        let session = TabSession(
+            slotIndex: newSlot,
+            jarPath: jarPath,
+            appName: appName,
+            gameId: gid,
+            saveRoot: saveRoot,
+            icon: icon,
+            screenshot: nil
+        )
+        tabSessions.append(session)
+        createTabButton(index: newSlot)
+        selectTab(at: newSlot)
+
+        let folderName = URL(fileURLWithPath: saveRoot).lastPathComponent
+        showToast(message: "Đã thêm Tab \(newSlot + 1): \(appName)\n(Thư mục data: \(folderName))")
     }
 
     @objc private func addTabTapped() {
@@ -451,8 +490,111 @@ class GameViewController: UIViewController {
             showToast(message: "Đã đạt tối đa 100 tab")
             return
         }
-        addTabs(count: 1)
-        showToast(message: "Đã thêm Tab \(tabButtons.count)")
+
+        let installedApps = AppsListViewController.loadInstalledApps()
+
+        let alert = UIAlertController(
+            title: "Thêm Tab Mới",
+            message: "Chọn game để chạy trên Tab \(tabButtons.count + 1):",
+            preferredStyle: .actionSheet
+        )
+
+        // 1. Current game option (Cloning / duplicate)
+        alert.addAction(UIAlertAction(title: "⧉ Nhân bản game hiện tại (\(appName))", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            self.addNewTab(jarPath: self.jarPath, appName: self.appName, icon: self.appIcon)
+        })
+
+        // 2. Installed games options from lobby / library
+        for app in installedApps {
+            if app.path != self.jarPath {
+                alert.addAction(UIAlertAction(title: "🎮 " + app.name, style: .default) { [weak self] _ in
+                    guard let self = self else { return }
+                    self.addNewTab(jarPath: app.path, appName: app.name, icon: app.icon)
+                })
+            }
+        }
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = addTabBtn
+            popover.sourceRect = addTabBtn.bounds
+        }
+        present(alert, animated: true)
+    }
+
+    @objc private func multiTabTapped() {
+        let maxAvailable = 100 - tabButtons.count
+        if maxAvailable <= 0 {
+            showToast(message: "Đã đạt tối đa 100 tab")
+            return
+        }
+
+        let installedApps = AppsListViewController.loadInstalledApps()
+
+        let alert = UIAlertController(
+            title: "Mở nhiều tab (++)",
+            message: "Nhập số lượng tab và chọn game cần mở:",
+            preferredStyle: .alert
+        )
+        alert.addTextField { tf in
+            tf.text = "5"
+            tf.keyboardType = .numberPad
+            tf.placeholder = "Số tab (tối đa \(maxAvailable))"
+        }
+
+        // Action for current game
+        alert.addAction(UIAlertAction(title: "⧉ Mở cho: \(appName)", style: .default) { [weak self, weak alert] _ in
+            guard let self = self else { return }
+            let count = Int(alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
+            let safeCount = max(1, min(count, maxAvailable))
+            for _ in 0..<safeCount {
+                self.addNewTab(jarPath: self.jarPath, appName: self.appName, icon: self.appIcon)
+            }
+        })
+
+        // Actions for other installed games
+        for app in installedApps.prefix(4) {
+            if app.path != self.jarPath {
+                alert.addAction(UIAlertAction(title: "🎮 " + app.name, style: .default) { [weak self, weak alert] _ in
+                    guard let self = self else { return }
+                    let count = Int(alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
+                    let safeCount = max(1, min(count, maxAvailable))
+                    for _ in 0..<safeCount {
+                        self.addNewTab(jarPath: app.path, appName: app.name, icon: app.icon)
+                    }
+                })
+            }
+        }
+
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func takeSnapshot() -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(emulatorView.bounds.size, false, UIScreen.main.scale)
+        emulatorView.drawHierarchy(in: emulatorView.bounds, afterScreenUpdates: false)
+        let img = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return img
+    }
+
+    private func promptSelectTabFromAssistive() {
+        let alert = UIAlertController(
+            title: "Chuyển Tab",
+            message: "Chọn tab bạn muốn hiển thị:",
+            preferredStyle: .actionSheet
+        )
+        for (i, session) in tabSessions.enumerated() {
+            let prefix = (i == activeTabIndex) ? "✓ " : "   "
+            alert.addAction(UIAlertAction(title: "\(prefix)Tab \(i + 1): \(session.appName)", style: .default) { [weak self] _ in
+                self?.selectTab(at: i)
+                self?.restoreFromFloatingBubble()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        present(alert, animated: true)
     }
 
     // ============================================================
@@ -587,8 +729,12 @@ class GameViewController: UIViewController {
 
     private func minimizeToFloatingBubble() {
         DecadeBackgroundKeeper.shared.setTreoActive(true)
-        DecadeFloatingBubble.shared.setIcon(appIcon)
-        DecadeFloatingBubble.shared.setTabBadge(activeTabIndex + 1)
+        let session = (activeTabIndex < tabSessions.count) ? tabSessions[activeTabIndex] : nil
+        DecadeFloatingBubble.shared.setGameInfo(
+            name: session?.appName ?? appName,
+            icon: session?.icon ?? appIcon,
+            tabNumber: activeTabIndex + 1
+        )
         DecadeFloatingBubble.shared.onRestoreGame = { [weak self] in
             self?.restoreFromFloatingBubble()
         }
@@ -598,14 +744,26 @@ class GameViewController: UIViewController {
         DecadeFloatingBubble.shared.onToggleTreo = { [weak self] in
             self?.toggleTreoTatMan()
         }
+        DecadeFloatingBubble.shared.onToggleHeadless = { [weak self] in
+            self?.promptFPSLimit()
+        }
+        DecadeFloatingBubble.shared.onSelectTabPrompt = { [weak self] in
+            self?.promptSelectTabFromAssistive()
+        }
         DecadeFloatingBubble.shared.show(in: view.window)
-        showToast(message: "Đã ẩn ứng dụng thành bong bóng nổi (Chạm bóng để mở lại)")
+
+        // Minimizing: smoothly return to the Lobby while keeping the session humming
+        navigationController?.popViewController(animated: true)
+        showToast(message: "Đã thu nhỏ game về sảnh — Chạm nút Home ảo để mở lại")
     }
 
     private func restoreFromFloatingBubble() {
-        DecadeFloatingBubble.shared.hide()
+        DecadeFloatingBubble.shared.dismissAssistiveTouchMenu(animated: true)
+        if let nav = navigationController, nav.topViewController != self {
+            nav.pushViewController(self, animated: true)
+        }
         view.window?.bringSubviewToFront(view)
-        showToast(message: "Đã mở lại màn hình game (Tab \(activeTabIndex + 1))")
+        showToast(message: "Đang mở: \(titleLabel.text ?? appName)")
     }
 
     private func promptAssignProxyForCurrentTab() {
@@ -1149,6 +1307,7 @@ class GameViewController: UIViewController {
     }
 
     func showTextBoxView() {
+        j2me_input_reset()
         let formTitle = String(cString: j2me_ui_get_form_title())
         titleLabel.text = formTitle.isEmpty ? "Tài khoản" : formTitle
         textBoxView.buildFromNativeData()
@@ -1162,6 +1321,7 @@ class GameViewController: UIViewController {
     }
 
     func showFormView() {
+        j2me_input_reset()
         let formTitle = String(cString: j2me_ui_get_form_title())
         titleLabel.text = formTitle.isEmpty ? appName : formTitle
         formView.buildFromNativeData()
@@ -1175,6 +1335,7 @@ class GameViewController: UIViewController {
     }
 
     func showListView() {
+        j2me_input_reset()
         let formTitle = String(cString: j2me_ui_get_form_title())
         titleLabel.text = formTitle.isEmpty ? "Menu" : formTitle
         listView.buildFromNativeData()
@@ -1188,6 +1349,7 @@ class GameViewController: UIViewController {
     }
 
     func showAlert() {
+        j2me_input_reset()
         let title = String(cString: j2me_ui_get_form_title())
         let text = String(cString: j2me_ui_get_alert_text())
 

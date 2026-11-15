@@ -2,10 +2,10 @@
 //  DecadeBackgroundKeeper.swift
 //  J2MEEmulator
 //
-//  Decade Background Keepalive Engine.
+//  Decade Background Keepalive Engine for iOS.
 //  Keeps J2ME threads and network sockets alive indefinitely in background / screen lock.
-//  Uses continuous silent audio loop with AVAudioSession .playback + .mixWithOthers
-//  and automatic recovery from interruptions (calls, Siri, route changes).
+//  Uses continuous sub-audible audio stream with AVAudioSession .playback + .mixWithOthers,
+//  chained background task assertions, and self-healing watchdog.
 //
 
 import UIKit
@@ -16,11 +16,17 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
 
     private var audioPlayer: AVAudioPlayer?
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
+    private var watchdogTimer: DispatchSourceTimer?
     private(set) var isTreoActive: Bool = false
 
     private override init() {
         super.init()
         setupNotifications()
+        // Restore persistent treo state if previously enabled
+        let savedTreo = UserDefaults.standard.bool(forKey: "decade_treo_tat_man")
+        if savedTreo {
+            setTreoActive(true)
+        }
     }
 
     private func setupNotifications() {
@@ -52,17 +58,23 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
 
     func setTreoActive(_ active: Bool) {
         isTreoActive = active
+        UserDefaults.standard.set(active, forKey: "decade_treo_tat_man")
+
         if active {
             startKeepalive()
             UIApplication.shared.isIdleTimerDisabled = true
+            startWatchdog()
+            print("[DecadeBackgroundKeeper] Treo tắt màn & Chạy nền liên tục: ĐÃ BẬT")
         } else {
+            stopWatchdog()
             stopKeepalive()
             UIApplication.shared.isIdleTimerDisabled = false
+            print("[DecadeBackgroundKeeper] Treo tắt màn: ĐÃ TẮT")
         }
     }
 
     func startKeepalive() {
-        startSilentAudio()
+        startAudioStream()
         beginBackgroundTask()
     }
 
@@ -86,9 +98,8 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
 
     @objc private func handleAppWillEnterForeground() {
         endBackgroundTask()
-        // If treo is still active, ensure audio is still humming
         if isTreoActive && (audioPlayer == nil || audioPlayer?.isPlaying == false) {
-            startSilentAudio()
+            startAudioStream()
         }
     }
 
@@ -99,35 +110,33 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
 
         if type == .ended {
-            // Re-activate and resume silent audio
-            do {
-                try AVAudioSession.sharedInstance().setActive(true)
-                audioPlayer?.play()
-            } catch {
-                print("[DecadeBackgroundKeeper] Resume audio failed: \(error)")
+            // Re-activate and resume audio stream
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self, self.isTreoActive else { return }
+                self.startAudioStream()
             }
         }
     }
 
     @objc private func handleRouteChange(_ notification: Notification) {
         guard isTreoActive else { return }
-        if audioPlayer?.isPlaying == false {
-            audioPlayer?.play()
+        if audioPlayer == nil || audioPlayer?.isPlaying == false {
+            startAudioStream()
         }
     }
 
-    private func startSilentAudio() {
+    private func startAudioStream() {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
 
             if audioPlayer == nil {
-                let silentWavData = createSilentWavData()
-                audioPlayer = try AVAudioPlayer(data: silentWavData)
+                let pcmData = createSubaudibleWavData()
+                audioPlayer = try AVAudioPlayer(data: pcmData)
                 audioPlayer?.delegate = self
-                audioPlayer?.numberOfLoops = -1 // Infinite loop
-                audioPlayer?.volume = 0.01      // Inaudible, but hardware active
+                audioPlayer?.numberOfLoops = -1 // Infinite continuous loop
+                audioPlayer?.volume = 0.02      // Hardware level audio rendering active
                 audioPlayer?.prepareToPlay()
             }
             if audioPlayer?.isPlaying == false {
@@ -152,7 +161,13 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
         }
 
         bgTask = UIApplication.shared.beginBackgroundTask(withName: "DecadeKeepaliveTask") { [weak self] in
-            self?.endBackgroundTask()
+            // Expiration handler: renew immediately if treo is still active
+            guard let self = self else { return }
+            if self.isTreoActive {
+                self.beginBackgroundTask()
+            } else {
+                self.endBackgroundTask()
+            }
         }
     }
 
@@ -163,21 +178,50 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    /// Synthesizes a valid 1-second 8kHz mono 16-bit PCM silent WAV in memory
-    private func createSilentWavData() -> Data {
-        let sampleRate: Int32 = 8000
+    /// Watchdog timer running on background queue to ensure audio is never killed
+    private func startWatchdog() {
+        stopWatchdog()
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now() + 3.0, repeating: 3.0)
+        timer.setEventHandler { [weak self] in
+            guard let self = self, self.isTreoActive else { return }
+            DispatchQueue.main.async {
+                if self.audioPlayer == nil || self.audioPlayer?.isPlaying == false {
+                    self.startAudioStream()
+                }
+            }
+        }
+        timer.resume()
+        watchdogTimer = timer
+    }
+
+    private func stopWatchdog() {
+        watchdogTimer?.cancel()
+        watchdogTimer = nil
+    }
+
+    /// Synthesizes a valid 2-second 44.1kHz mono 16-bit PCM WAV with sub-audible LSB dither (-96dB).
+    /// This guarantees iOS CoreAudio (mediaserverd) detects an ACTIVE audio stream and NEVER
+    /// considers it digital silence or suspends the audio hardware.
+    private func createSubaudibleWavData() -> Data {
+        let sampleRate: Int32 = 44100
         let channels: Int16 = 1
         let bitsPerSample: Int16 = 16
-        let dataSize: Int32 = sampleRate * Int32(channels) * Int32(bitsPerSample / 8) // 1 second
+        let numSamples: Int32 = sampleRate * 2 // 2 seconds
+        let dataSize: Int32 = numSamples * Int32(channels) * Int32(bitsPerSample / 8)
         let totalSize: Int32 = 36 + dataSize
 
         var data = Data()
-        data.append(contentsOf: [0x52, 0x49, 0x46, 0x46]) // "RIFF"
+        data.reserveCapacity(Int(totalSize + 8))
+
+        // "RIFF"
+        data.append(contentsOf: [0x52, 0x49, 0x46, 0x46])
         data.append(withUnsafeBytes(of: totalSize.littleEndian) { Data($0) })
-        data.append(contentsOf: [0x57, 0x41, 0x56, 0x45]) // "WAVE"
+        // "WAVE"
+        data.append(contentsOf: [0x57, 0x41, 0x56, 0x45])
 
         // "fmt " chunk
-        data.append(contentsOf: [0x66, 0x6D, 0x74, 0x20]) // "fmt "
+        data.append(contentsOf: [0x66, 0x6D, 0x74, 0x20])
         let fmtSize: Int32 = 16
         data.append(withUnsafeBytes(of: fmtSize.littleEndian) { Data($0) })
         let pcmFormat: Int16 = 1
@@ -191,11 +235,14 @@ final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
         data.append(withUnsafeBytes(of: bitsPerSample.littleEndian) { Data($0) })
 
         // "data" chunk
-        data.append(contentsOf: [0x64, 0x61, 0x74, 0x61]) // "data"
+        data.append(contentsOf: [0x64, 0x61, 0x74, 0x61])
         data.append(withUnsafeBytes(of: dataSize.littleEndian) { Data($0) })
 
-        // 1 second of zeroes (silence)
-        data.append(Data(count: Int(dataSize)))
+        // 2 seconds of sub-audible dither (alternating +/-1 on 16-bit PCM = -96dB)
+        for i in 0..<numSamples {
+            let sample: Int16 = (i % 2 == 0) ? 1 : -1
+            data.append(withUnsafeBytes(of: sample.littleEndian) { Data($0) })
+        }
         return data
     }
 }

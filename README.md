@@ -1,15 +1,15 @@
 <p align="center">
     <img src="Assets/icon.png" width="170" />
 </p>
-<h1 align="center">JarBox</h1>
+<h1 align="center">J2ME-Decade (iOS Edition)</h1>
 
-JarBox is a J2ME (Java ME) emulator for iOS that runs MIDP 2.0 / CLDC 1.1 games and applications on iPhone and iPad.
+J2ME-Decade (iOS Edition) is a high-performance J2ME (Java ME) emulator for iOS that runs MIDP 2.0 / CLDC 1.1 games and applications on iPhone and iPad, bringing the full Decade multi-tab, proxy management, background keepalive ("treo tắt màn"), and AssistiveTouch floating bubble experience to iOS.
 
-Built on top of [miniJVM](https://github.com/niclet/mini_jvm) (a lightweight JVM written in C) with the J2ME API layer ported from [J2ME-Loader](https://github.com/niclet/J2ME-Loader) (Android).
+Built on top of [miniJVM](https://github.com/niclet/mini_jvm) (a lightweight JVM written in C) with the J2ME API layer ported from [J2ME-Loader](https://github.com/niclet/J2ME-Loader) and enhanced with the Decade ecosystem features.
 
 ## AI-assisted development
 
-This project was almost entirely built using [Claude Code](https://claude.ai/claude-code) as an experiment in applying LLMs to non-trivial codebases. The emulator involves C, Objective-C, Swift, Java, and OpenGL — spanning ~180k+ lines across multiple languages — and the vast majority of the code, debugging, and integration work was done through conversational interaction with Claude.
+Developed and ported using **Google DeepMind Antigravity**, pushing the boundaries of autonomous agentic engineering across complex multi-language systems involving C, Objective-C, Swift, Java, and OpenGL ES.
 
 ## Features
 

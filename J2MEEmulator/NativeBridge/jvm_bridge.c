@@ -161,6 +161,13 @@ void jvm_bridge_destroy(void) {
     }
 }
 
+void jvm_bridge_set_save_root(const char *save_root) {
+    if (g_jvm && save_root) {
+        sys_properties_set_c(g_jvm, "app.save.root", (c8 *)save_root);
+        printf("[JVM Bridge] Switched app.save.root to: %s\n", save_root);
+    }
+}
+
 void jvm_bridge_request_stop(void) {
     printf("[JVM Bridge] Stop requested\n");
     atomic_store(&g_jvm_stop_requested, 1);

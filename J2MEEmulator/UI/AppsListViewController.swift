@@ -232,6 +232,29 @@ class AppsListViewController: UIViewController,
     }
     private var apps: [AppInfo] = []
 
+    static func loadInstalledApps() -> [AppInfo] {
+        let gamesDir = gamesDirectory
+        var jarPaths: [(name: String, path: String)] = []
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: gamesDir) {
+            for file in files where file.hasSuffix(".jar") {
+                jarPaths.append((name: String(file.dropLast(4)), path: gamesDir + "/" + file))
+            }
+        }
+        var unsorted = jarPaths.map { jar -> (String, String, String, String?, String?, UIImage?) in
+            let meta = JARMetadata.read(from: jar.path)
+            let jarIcon = meta?.readIcon(from: jar.path)
+            let fileName = URL(fileURLWithPath: jar.path).lastPathComponent
+            let appName = meta?.midletName ?? jar.name
+            return (appName, jar.path, fileName, meta?.version, meta?.vendor, jarIcon)
+        }
+        unsorted.sort { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
+        return unsorted.enumerated().map { (index, t) in
+            AppInfo(name: t.0, path: t.1, fileName: t.2,
+                    version: t.3, vendor: t.4,
+                    icon: Self.springboardIcon(t.5, name: t.0, index: index))
+        }
+    }
+
     private func scanApps() {
         let gamesDir = Self.gamesDirectory
 

@@ -30,6 +30,9 @@ int jvm_bridge_run_midlet(const char *midlet_jar_path);
 /// Destroy the JVM instance and free resources.
 void jvm_bridge_destroy(void);
 
+/// Dynamically switch app.save.root for multi-tab data isolation (-tabN)
+void jvm_bridge_set_save_root(const char *save_root);
+
 /// Request graceful MIDlet stop (non-blocking, thread-safe).
 /// Can be called from any thread (e.g. main UI thread).
 /// The Display event loop will detect this and call notifyDestroyed().
