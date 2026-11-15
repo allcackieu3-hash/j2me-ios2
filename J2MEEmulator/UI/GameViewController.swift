@@ -1569,10 +1569,8 @@ class GameViewController: UIViewController {
         // 1. Signal stop to ALL slots
         jvm_bridge_request_stop_all()
 
-        // 2. Wake up all slots from waiting on pollInputEvent
-        for s in 0..<32 {
-            j2me_input_post_key_slot(Int32(s), 0, 0)
-        }
+        // 2. Wake up event loop
+        j2me_input_post_key(0, 0)
 
         // 3. Dismiss UI back to apps list immediately on main thread so it NEVER hangs/freezes!
         DispatchQueue.main.async { [weak self] in
