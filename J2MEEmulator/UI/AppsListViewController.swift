@@ -273,7 +273,13 @@ class AppsListViewController: UIViewController,
 
     @objc private func addAppTapped() {
         let jarType = UTType(filenameExtension: "jar") ?? .data
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [jarType])
+        let contentTypes: [UTType] = [
+            jarType,
+            UTType(filenameExtension: "zip") ?? .archive,
+            .data,
+            .item
+        ]
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes, asCopy: true)
         picker.delegate = self
         picker.allowsMultipleSelection = true
         present(picker, animated: true)
@@ -285,21 +291,32 @@ class AppsListViewController: UIViewController,
         var imported = 0
 
         for url in urls {
-            guard url.pathExtension.lowercased() == "jar" else { continue }
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            let ext = url.pathExtension.lowercased()
+            guard ext == "jar" || ext == "zip" else { continue }
 
             let destURL = URL(fileURLWithPath: Self.gamesDirectory)
                 .appendingPathComponent(url.lastPathComponent)
 
-            // If file with same name exists, remove it (overwrite)
-            try? fm.removeItem(at: destURL)
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if accessing { url.stopAccessingSecurityScopedResource() }
+            }
 
-            do {
-                try fm.copyItem(at: url, to: destURL)
-                imported += 1
-            } catch {
-                print("[Swift] Failed to import \(url.lastPathComponent): \(error)")
+            var coordinatorError: NSError?
+            let coordinator = NSFileCoordinator()
+            coordinator.coordinate(readingItemAt: url, options: .withoutChanges, error: &coordinatorError) { readURL in
+                do {
+                    try? fm.removeItem(at: destURL)
+                    try fm.copyItem(at: readURL, to: destURL)
+                    imported += 1
+                } catch {
+                    if let data = try? Data(contentsOf: readURL) {
+                        try? data.write(to: destURL)
+                        imported += 1
+                    } else {
+                        print("[Swift] Failed to import \(url.lastPathComponent): \(error)")
+                    }
+                }
             }
         }
 
@@ -714,6 +731,7 @@ class AppsListViewController: UIViewController,
 
     func collectionView(_ collectionView: UICollectionView,
                         didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item < apps.count else { return }
         let app = apps[indexPath.item]
 
         let render3dScale = Self.is3DSupersampling(for: app) ? 3 : 1
@@ -723,31 +741,7 @@ class AppsListViewController: UIViewController,
                                          canvasWidth: res.w, canvasHeight: res.h,
                                          render3dScale: render3dScale, fpsLimit: fps)
         gameVC.modalPresentationStyle = .fullScreen
-
-        if #available(iOS 18.0, *) {
-            let itemIndex = indexPath.item
-            let options = UIViewController.Transition.ZoomOptions()
-            options.interactiveDismissShouldBegin = { _ in false }
-            // Zoom lands on the placeholder icon centered in the game screen
-            options.alignmentRectProvider = { context in
-                guard let gvc = context.zoomedViewController as? GameViewController,
-                      let placeholder = gvc.placeholderIconView else {
-                    return .null
-                }
-                return placeholder.frame
-            }
-
-            gameVC.preferredTransition = .zoom(options: options) {
-                [weak self] _ in
-                guard let self,
-                      let cell = self.springboardCollectionView.cellForItem(
-                          at: IndexPath(item: itemIndex, section: 0)) as? SpringboardCell else {
-                    return nil
-                }
-                return cell.iconView
-            }
-        }
-
+        gameVC.modalTransitionStyle = .coverVertical
         present(gameVC, animated: true)
     }
 }
