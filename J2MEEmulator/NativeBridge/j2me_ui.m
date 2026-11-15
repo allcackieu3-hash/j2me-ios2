@@ -83,6 +83,7 @@ int j2me_ui_get_form_item_type(int index) { return index < g_form_item_count ? g
 const char *j2me_ui_get_form_item_label(int index) { return index < g_form_item_count ? g_form_items[index].label : ""; }
 const char *j2me_ui_get_form_item_text(int index) { return index < g_form_item_count ? g_form_items[index].text : ""; }
 int j2me_ui_get_form_item_param1(int index) { return index < g_form_item_count ? g_form_items[index].intParam1 : 0; }
+int j2me_ui_get_form_item_param2(int index) { return index < g_form_item_count ? g_form_items[index].intParam2 : 0; }
 
 int j2me_ui_get_command_count(void) { return g_form_command_count; }
 const char *j2me_ui_get_command_label(int index) { return index < g_form_command_count ? g_form_commands[index].label : ""; }

@@ -121,7 +121,7 @@ public class Form extends Screen {
                     if (j > 0) sb.append(",");
                     sb.append(cg.isSelected(j) ? "1" : "0");
                 }
-                NativeBridge.formAddTextField(item.getItemLabel(), sb.toString(), 2, cg.choiceType);
+                NativeBridge.formAddTextField(item.getItemLabel(), sb.toString(), cg.choiceType, cg.choiceType);
             } else {
                 // Fallback: show as string
                 NativeBridge.formAddStringItem(item.getItemLabel(), item.getItemText(), 0);
