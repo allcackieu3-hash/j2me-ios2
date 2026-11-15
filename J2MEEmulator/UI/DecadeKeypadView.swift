@@ -6,7 +6,7 @@
 //  - Pure directional keycodes (Canvas.UP=-1, DOWN=-2, LEFT=-3, RIGHT=-4, FIRE=-5, etc.)
 //    -> NEVER outputs numbers when navigating!
 //  - "Công tắc cấu trúc phím" (Layout switcher): Arrows, Numpad, Combined
-//  - "Ẩn nút" (Key visibility toggle matching Decade Android dialog)
+//  - "Ẩn nút" (Key visibility toggle matching Android Decade Screenshot 1)
 //  - "Chế độ chỉnh sửa cấu trúc phím" (Drag to move keys freely anywhere)
 //  - "Chế độ thay đổi kích cỡ cấu trúc phím" (Pinch to resize keys)
 //  - "Hoàn thành chế độ chỉnh sửa" (Save and lock layout)
@@ -65,7 +65,7 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         }
     }
 
-    // Hidden keys set from "Ẩn nút" dialog
+    // Hidden keys set from "Ẩn nút" dialog (checked = hidden)
     var hiddenKeys: Set<String> = [] {
         didSet {
             updateKeysVisibility()
@@ -139,7 +139,7 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         switch currentLayout {
         case .arrows:
             // Layout 1: Decade Mũi tên (Arrows - Pure Navigation, NO NUMBERS)
-            // User requested: Add '*' and '#' at the two corners in Row 3!
+            // User requested: '*' and '#' at the two corners in Row 2!
             // Row 0: [ L ]  [ ↖ ]  [ ↑ ]  [ ↗ ]  [ R ]
             // Row 1: [   ]  [ ← ]  [ F ]  [ → ]  [   ]
             // Row 2: [ * ]  [ ↙ ]  [ ↓ ]  [ ↘ ]  [ # ]
@@ -173,6 +173,17 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
             // * and # at corners of Row 2:
             list.append(("*", 42, 0, 0, 2, 5, 3))
             list.append(("#", 35, 0, 4, 2, 5, 3))
+
+            // Numbers 1-0: Available if unhidden in "Ẩn nút" dialog
+            let numbers: [(String, Int32, Int, Int)] = [
+                ("1", 49, 0, 0), ("2", 50, 1, 0), ("3", 51, 2, 0),
+                ("4", 52, 0, 1), ("5", 53, 1, 1), ("6", 54, 2, 1),
+                ("7", 55, 0, 2), ("8", 56, 1, 2), ("9", 57, 2, 2),
+                ("0", 48, 1, 2)
+            ]
+            for num in numbers {
+                list.append((num.0, num.1, 0, num.2, num.3, 5, 3))
+            }
 
             items = list
 
@@ -305,6 +316,10 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         gesture.setTranslation(.zero, in: containerView)
 
         saveButtonPosition(btn)
+
+        if gesture.state == .ended || gesture.state == .cancelled {
+            saveCustomLayout()
+        }
     }
 
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
@@ -316,6 +331,10 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         gesture.scale = 1.0
 
         saveButtonPosition(btn)
+
+        if gesture.state == .ended || gesture.state == .cancelled {
+            saveCustomLayout()
+        }
     }
 
     private func saveButtonPosition(_ btn: DecadeKeyButton) {
@@ -348,7 +367,8 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         if let savedHidden = UserDefaults.standard.stringArray(forKey: hiddenKey) {
             hiddenKeys = Set(savedHidden)
         } else {
-            hiddenKeys = []
+            // Default hidden keys for Kiểu 1 (Arrows): 0-9 are hidden, while *, #, arrows, F, L, R are visible!
+            hiddenKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
         }
     }
 
@@ -363,6 +383,7 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
         isEditLayoutMode = false
         isResizeLayoutMode = false
         saveCustomLayout()
+        updateEditModeAppearance()
     }
 
     private func updateEditModeAppearance() {
@@ -377,10 +398,10 @@ class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
 
             if isEditLayoutMode {
                 btn.layer.borderColor = UIColor.systemBlue.cgColor
-                btn.layer.borderWidth = 2.0
+                btn.layer.borderWidth = 2.5
             } else if isResizeLayoutMode {
                 btn.layer.borderColor = UIColor.systemOrange.cgColor
-                btn.layer.borderWidth = 2.0
+                btn.layer.borderWidth = 2.5
             } else {
                 btn.layer.borderColor = UIColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.60).cgColor
                 btn.layer.borderWidth = 1.0

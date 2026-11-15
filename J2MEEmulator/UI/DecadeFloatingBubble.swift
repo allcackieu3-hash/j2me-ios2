@@ -2,7 +2,8 @@
 //  DecadeFloatingBubble.swift
 //  J2MEEmulator
 //
-//  Authentic AssistiveTouch-style floating draggable bubble for "Ẩn ứng dụng".
+//  Authentic AssistiveTouch-style floating draggable bubble for "Ẩn ứng dụng"
+//  matching Android Decade Screenshot 3 & 4.
 //
 
 import UIKit
@@ -20,8 +21,8 @@ final class DecadeFloatingBubble: UIView {
     private var isDragging = false
 
     private init() {
-        let size: CGFloat = 58
-        super.init(frame: CGRect(x: UIScreen.main.bounds.width - size - 12, y: 200, width: size, height: size))
+        let size: CGFloat = 60
+        super.init(frame: CGRect(x: UIScreen.main.bounds.width - size - 12, y: 220, width: size, height: size))
         setupUI()
         setupGestures()
     }
@@ -31,28 +32,31 @@ final class DecadeFloatingBubble: UIView {
     }
 
     private func setupUI() {
-        backgroundColor = UIColor.white.withAlphaComponent(0.85)
-        layer.cornerRadius = 29
-        layer.borderWidth = 2
-        layer.borderColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 0.9).cgColor
+        backgroundColor = UIColor.white.withAlphaComponent(0.92)
+        layer.cornerRadius = 30
+        layer.borderWidth = 2.5
+        layer.borderColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 0.95).cgColor
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.3
+        layer.shadowOpacity = 0.35
         layer.shadowOffset = CGSize(width: 0, height: 4)
-        layer.shadowRadius = 6
+        layer.shadowRadius = 8
         clipsToBounds = false
 
         iconImageView.image = UIImage(named: "DecadeLogo") ?? UIImage(systemName: "gamecontroller.fill")
-        iconImageView.contentMode = .scaleAspectFit
-        iconImageView.tintColor = UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0)
+        iconImageView.contentMode = .scaleAspectFill
+        iconImageView.layer.cornerRadius = 24
+        iconImageView.clipsToBounds = true
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(iconImageView)
 
         badgeLabel.text = "1"
-        badgeLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        badgeLabel.font = .systemFont(ofSize: 12, weight: .bold)
         badgeLabel.textColor = .white
         badgeLabel.backgroundColor = UIColor(red: 0.12, green: 0.45, blue: 0.90, alpha: 1.0)
         badgeLabel.textAlignment = .center
-        badgeLabel.layer.cornerRadius = 9
+        badgeLabel.layer.cornerRadius = 10
+        badgeLabel.layer.borderWidth = 1.5
+        badgeLabel.layer.borderColor = UIColor.white.cgColor
         badgeLabel.clipsToBounds = true
         badgeLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(badgeLabel)
@@ -60,14 +64,22 @@ final class DecadeFloatingBubble: UIView {
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 36),
-            iconImageView.heightAnchor.constraint(equalToConstant: 36),
+            iconImageView.widthAnchor.constraint(equalToConstant: 48),
+            iconImageView.heightAnchor.constraint(equalToConstant: 48),
 
-            badgeLabel.topAnchor.constraint(equalTo: topAnchor, constant: -2),
-            badgeLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 2),
-            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
-            badgeLabel.heightAnchor.constraint(equalToConstant: 18),
+            badgeLabel.topAnchor.constraint(equalTo: topAnchor, constant: -4),
+            badgeLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 4),
+            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 20),
+            badgeLabel.heightAnchor.constraint(equalToConstant: 20),
         ])
+    }
+
+    func setIcon(_ image: UIImage?) {
+        if let img = image {
+            iconImageView.image = img
+        } else {
+            iconImageView.image = UIImage(named: "DecadeLogo") ?? UIImage(systemName: "gamecontroller.fill")
+        }
     }
 
     func setTabBadge(_ tabNumber: Int) {
@@ -142,7 +154,7 @@ final class DecadeFloatingBubble: UIView {
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.75, initialSpringVelocity: 0.5) {
             self.center = CGPoint(x: targetX, y: targetY)
             self.transform = .identity
-            self.alpha = 0.8
+            self.alpha = 0.85
         }
     }
 
@@ -170,7 +182,7 @@ final class DecadeFloatingBubble: UIView {
             self?.hide()
         })
 
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Huỷ", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
             popover.sourceView = self

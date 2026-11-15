@@ -2,7 +2,8 @@
 //  DecadeHideButtonsDialog.swift
 //  J2MEEmulator
 //
-//  Authentic 1:1 Decade "Ẩn nút" dialog (matches Android Decade Screenshot 1).
+//  Authentic 1:1 Decade "Ẩn nút" dialog matching Android Decade Screenshot 1.
+//  In Android Decade, checked = HIDDEN (Ẩn), unchecked = VISIBLE (Hiện).
 //
 
 import UIKit
@@ -12,34 +13,26 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
     private let gameId: String
     private let onApply: (Set<String>) -> Void
 
-    // All 27 Decade keys matching Android VirtualKeyboard
+    // All keys matching Android Decade VirtualKeyboard order
     private let allKeys: [String] = [
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
         "*", "#",
-        "L", "R", "C",
-        "↖", "↑", "↗",
-        "←", "→",
-        "↙", "↓", "↘",
-        "F", "A", "B", "M"
+        "L", "R", "F",
+        "↑", "↓", "←", "→",
+        "↖", "↗", "↙", "↘"
     ]
 
-    // Keys that are currently VISIBLE (checked)
-    private var visibleKeys: Set<String> = []
+    // Set of keys that are currently HIDDEN (checked in dialog)
+    private var hiddenKeys: Set<String>
 
     private let dialogView = UIView()
     private let tableView = UITableView(frame: .zero, style: .plain)
 
     init(gameId: String, currentHiddenKeys: Set<String>, onApply: @escaping (Set<String>) -> Void) {
         self.gameId = gameId
+        self.hiddenKeys = currentHiddenKeys
         self.onApply = onApply
         super.init(nibName: nil, bundle: nil)
-
-        // Initial visible keys = allKeys minus hiddenKeys
-        for key in allKeys {
-            if !currentHiddenKeys.contains(key) {
-                visibleKeys.insert(key)
-            }
-        }
 
         modalPresentationStyle = .overFullScreen
         modalTransitionStyle = .crossDissolve
@@ -53,7 +46,7 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
 
         // Dialog card matching Android Material AlertDialog
         dialogView.backgroundColor = .white
-        dialogView.layer.cornerRadius = 8
+        dialogView.layer.cornerRadius = 12
         dialogView.clipsToBounds = true
         dialogView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(dialogView)
@@ -69,10 +62,11 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
         tableView.delegate = self
         tableView.backgroundColor = .white
         tableView.separatorStyle = .none
+        tableView.showsVerticalScrollIndicator = true
         tableView.translatesAutoresizingMaskIntoConstraints = false
         dialogView.addSubview(tableView)
 
-        // Bottom OK button in red (#E53935) matching Android screenshot
+        // Bottom OK button in red (#E53935) matching Android screenshot 1
         let okButton = UIButton(type: .system)
         okButton.setTitle("OK", for: .normal)
         okButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
@@ -87,7 +81,7 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
             dialogView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             dialogView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             dialogView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.82),
-            dialogView.heightAnchor.constraint(equalToConstant: min(520, screenH * 0.70)),
+            dialogView.heightAnchor.constraint(equalToConstant: min(540, screenH * 0.72)),
 
             titleLabel.topAnchor.constraint(equalTo: dialogView.topAnchor, constant: 18),
             titleLabel.leadingAnchor.constraint(equalTo: dialogView.leadingAnchor, constant: 20),
@@ -106,16 +100,9 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
     }
 
     @objc private func okTapped() {
-        var hiddenKeys = Set<String>()
-        for key in allKeys {
-            if !visibleKeys.contains(key) {
-                hiddenKeys.insert(key)
-            }
-        }
-
         // Save to UserDefaults
-        let hiddenKey = "decade_hidden_keys_\(gameId)"
-        UserDefaults.standard.set(Array(hiddenKeys), forKey: hiddenKey)
+        let key = "decade_hidden_keys_\(gameId)"
+        UserDefaults.standard.set(Array(hiddenKeys), forKey: key)
 
         onApply(hiddenKeys)
         dismiss(animated: true)
@@ -130,7 +117,7 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 42
+        return 44
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -141,11 +128,11 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
         cell.selectionStyle = .none
 
         let key = allKeys[indexPath.row]
-        let isChecked = visibleKeys.contains(key)
+        // In Android Decade: Checked means HIDDEN (Ẩn nút)
+        let isHidden = hiddenKeys.contains(key)
 
-        // Custom red checkbox icon matching Screenshot 1
-        let iconName = isChecked ? "checkmark.square.fill" : "square"
-        let iconColor = isChecked ? UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0) : UIColor.systemGray3
+        let iconName = isHidden ? "checkmark.square.fill" : "square"
+        let iconColor = isHidden ? UIColor(red: 0.90, green: 0.22, blue: 0.21, alpha: 1.0) : UIColor.systemGray3
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         cell.imageView?.image = UIImage(systemName: iconName, withConfiguration: config)
         cell.imageView?.tintColor = iconColor
@@ -159,10 +146,10 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let key = allKeys[indexPath.row]
-        if visibleKeys.contains(key) {
-            visibleKeys.remove(key)
+        if hiddenKeys.contains(key) {
+            hiddenKeys.remove(key)
         } else {
-            visibleKeys.insert(key)
+            hiddenKeys.insert(key)
         }
         tableView.reloadRows(at: [indexPath], with: .none)
     }

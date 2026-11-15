@@ -4,19 +4,22 @@
 //
 //  Decade Background Keepalive Engine.
 //  Keeps J2ME threads and network sockets alive indefinitely in background / screen lock.
+//  Uses continuous silent audio loop with AVAudioSession .playback + .mixWithOthers
+//  and automatic recovery from interruptions (calls, Siri, route changes).
 //
 
 import UIKit
 import AVFoundation
 
-final class DecadeBackgroundKeeper {
+final class DecadeBackgroundKeeper: NSObject, AVAudioPlayerDelegate {
     static let shared = DecadeBackgroundKeeper()
 
     private var audioPlayer: AVAudioPlayer?
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
     private(set) var isTreoActive: Bool = false
 
-    private init() {
+    private override init() {
+        super.init()
         setupNotifications()
     }
 
@@ -31,6 +34,18 @@ final class DecadeBackgroundKeeper {
             self,
             selector: #selector(handleAppWillEnterForeground),
             name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification,
             object: nil
         )
     }
@@ -57,6 +72,12 @@ final class DecadeBackgroundKeeper {
         endBackgroundTask()
     }
 
+    @objc func onSceneDidEnterBackground() {
+        if isTreoActive {
+            startKeepalive()
+        }
+    }
+
     @objc private func handleAppDidEnterBackground() {
         if isTreoActive {
             startKeepalive()
@@ -65,27 +86,62 @@ final class DecadeBackgroundKeeper {
 
     @objc private func handleAppWillEnterForeground() {
         endBackgroundTask()
+        // If treo is still active, ensure audio is still humming
+        if isTreoActive && (audioPlayer == nil || audioPlayer?.isPlaying == false) {
+            startSilentAudio()
+        }
+    }
+
+    @objc private func handleAudioInterruption(_ notification: Notification) {
+        guard isTreoActive,
+              let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        if type == .ended {
+            // Re-activate and resume silent audio
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                audioPlayer?.play()
+            } catch {
+                print("[DecadeBackgroundKeeper] Resume audio failed: \(error)")
+            }
+        }
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
+        guard isTreoActive else { return }
+        if audioPlayer?.isPlaying == false {
+            audioPlayer?.play()
+        }
     }
 
     private func startSilentAudio() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .default,
-                options: [.mixWithOthers, .duckOthers]
-            )
-            try AVAudioSession.sharedInstance().setActive(true)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
 
             if audioPlayer == nil {
                 let silentWavData = createSilentWavData()
                 audioPlayer = try AVAudioPlayer(data: silentWavData)
+                audioPlayer?.delegate = self
                 audioPlayer?.numberOfLoops = -1 // Infinite loop
-                audioPlayer?.volume = 0.01 // Zero audible sound, but recognized by audio engine
+                audioPlayer?.volume = 0.01      // Inaudible, but hardware active
                 audioPlayer?.prepareToPlay()
             }
-            audioPlayer?.play()
+            if audioPlayer?.isPlaying == false {
+                audioPlayer?.play()
+            }
         } catch {
             print("[DecadeBackgroundKeeper] Audio setup error: \(error)")
+        }
+    }
+
+    // AVAudioPlayerDelegate
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        if isTreoActive {
+            player.play()
         }
     }
 
