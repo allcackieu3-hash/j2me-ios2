@@ -14,16 +14,11 @@ class SpringboardCell: UICollectionViewCell {
     let iconView = UIImageView()
     let nameLabel = UILabel()
 
-    // Pre-built attributes with NSShadow (avoids expensive layer shadow)
+    // Clean dark label text for light background
     private static let labelAttributes: [NSAttributedString.Key: Any] = {
-        let shadow = NSShadow()
-        shadow.shadowColor = UIColor.black.withAlphaComponent(0.6)
-        shadow.shadowOffset = CGSize(width: 0, height: 0.5)
-        shadow.shadowBlurRadius = 1.5
         return [
-            .font: UIFont.systemFont(ofSize: 11.5, weight: .medium),
-            .foregroundColor: UIColor.white,
-            .shadow: shadow,
+            .font: UIFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: UIColor(red: 0.15, green: 0.15, blue: 0.18, alpha: 1.0),
         ]
     }()
 

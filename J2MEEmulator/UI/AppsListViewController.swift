@@ -27,18 +27,7 @@ class AppsListViewController: UIViewController,
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
-
-        // Animated blob background
-        let bg = AnimatedBackgroundView()
-        bg.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(bg)
-        NSLayoutConstraint.activate([
-            bg.topAnchor.constraint(equalTo: view.topAnchor),
-            bg.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bg.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bg.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
+        view.backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         // Top bar buttons matching Decade Android (Screenshot 4): 3-dots menu
         let moreMenu = UIMenu(title: "", children: [
@@ -432,39 +421,48 @@ class AppsListViewController: UIViewController,
     }
 
     private func showProxyDialog() {
-        let alert = UIAlertController(title: "Quản lý Proxy", message: "Chức năng gán HTTP / SOCKS proxy cho game.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-        present(alert, animated: true)
+        let proxyVC = DecadeProxyViewController()
+        let nav = UINavigationController(rootViewController: proxyVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
 
     private func showChangeIpDialog() {
-        let alert = UIAlertController(title: "Thay IP Phiên Bản", message: "Thay đổi IP máy chủ kết nối trực tiếp cho game.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-        present(alert, animated: true)
+        let changeIpVC = DecadeChangeIpViewController()
+        let nav = UINavigationController(rootViewController: changeIpVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
 
     private func showGlobalSettings() {
-        let alert = UIAlertController(title: "Thiết lập chung", message: "Cấu hình toàn hệ thống KamenRider Decade.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-        present(alert, animated: true)
+        if let firstApp = apps.first {
+            openConfig(for: firstApp)
+        } else {
+            let dummyApp = AppInfo(name: "KamenRider Decade", path: "", fileName: "", version: "1.0.0", vendor: "Havan", icon: UIImage())
+            openConfig(for: dummyApp)
+        }
     }
 
     private func showProfilesDialog() {
-        let alert = UIAlertController(title: "Hồ sơ", message: "Quản lý hồ sơ cấu hình KamenRider Decade.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-        present(alert, animated: true)
+        let profilesVC = DecadeProfilesViewController()
+        let nav = UINavigationController(rootViewController: profilesVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
 
     private func showHelpDialog() {
-        let alert = UIAlertController(title: "Trợ giúp", message: "KamenRider Decade J2ME Emulator cho iOS.\nHỗ trợ game Java và các bản mod ghép đa tài khoản (Ninja School Online, Avatar, v.v.).", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
-        present(alert, animated: true)
+        let helpVC = DecadeHelpViewController()
+        let nav = UINavigationController(rootViewController: helpVC)
+        nav.modalPresentationStyle = .pageSheet
+        present(nav, animated: true)
     }
 
     private func saveLogs() {
-        let alert = UIAlertController(title: "Lưu log", message: "Đã lưu log phiên làm việc vào bộ nhớ ứng dụng.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let logText = "KamenRider Decade J2ME iOS System Log\nTimestamp: \(Date())\nActive Games: \(apps.map { $0.name }.joined(separator: ", "))\n"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("decade_system.log")
+        try? logText.write(to: tempURL, atomically: true, encoding: .utf8)
+        let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+        present(activityVC, animated: true)
     }
 
     func launchGame(app: AppInfo, overrideW: Int? = nil, overrideH: Int? = nil, overrideFps: Int? = nil) {

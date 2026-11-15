@@ -6,8 +6,10 @@
 //  - Pure directional keycodes (Canvas.UP=-1, DOWN=-2, LEFT=-3, RIGHT=-4, FIRE=-5, etc.)
 //    -> NEVER outputs numbers when navigating!
 //  - "Công tắc cấu trúc phím" (Layout switcher): Arrows, Numpad, Combined
-//  - "Ẩn các phím" (Key visibility toggle for diagonals, softkeys, fire)
-//  - Size & opacity customization
+//  - "Ẩn nút" (Key visibility toggle matching Decade Android dialog)
+//  - "Chế độ chỉnh sửa cấu trúc phím" (Drag to move keys freely anywhere)
+//  - "Chế độ thay đổi kích cỡ cấu trúc phím" (Pinch to resize keys)
+//  - "Hoàn thành chế độ chỉnh sửa" (Save and lock layout)
 //
 
 import UIKit
@@ -18,7 +20,7 @@ enum DecadeKeypadLayout: Int {
     case combined = 2  // Arrows + Numpad combined
 }
 
-class DecadeKeypadView: UIView {
+class DecadeKeypadView: UIView, UIGestureRecognizerDelegate {
 
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var repeatTimer: Timer?
@@ -28,12 +30,24 @@ class DecadeKeypadView: UIView {
     var onTextInputTapped: (() -> Void)?
     var onMenuTapped: (() -> Void)?
 
-    private let mainStack = UIStackView()
+    let containerView = UIView()
+    private var buttons: [DecadeKeyButton] = []
 
     // Customization state
-    var currentLayout: DecadeKeypadLayout = .arrows {
-        didSet { rebuildKeypad() }
+    var gameId: String = "default" {
+        didSet {
+            loadSavedCustomLayout()
+            rebuildKeypad()
+        }
     }
+
+    var currentLayout: DecadeKeypadLayout = .arrows {
+        didSet {
+            loadSavedCustomLayout()
+            rebuildKeypad()
+        }
+    }
+
     var showDiagonalKeys: Bool = true {
         didSet { rebuildKeypad() }
     }
@@ -44,8 +58,35 @@ class DecadeKeypadView: UIView {
         didSet { rebuildKeypad() }
     }
     var keypadAlphaValue: CGFloat = 0.70 {
-        didSet { rebuildKeypad() }
+        didSet {
+            for btn in buttons {
+                btn.backgroundColor = UIColor(white: 1.0, alpha: keypadAlphaValue)
+            }
+        }
     }
+
+    // Hidden keys set from "Ẩn nút" dialog
+    var hiddenKeys: Set<String> = [] {
+        didSet {
+            updateKeysVisibility()
+        }
+    }
+
+    // Edit & Resize mode state
+    var isEditLayoutMode: Bool = false {
+        didSet {
+            updateEditModeAppearance()
+        }
+    }
+
+    var isResizeLayoutMode: Bool = false {
+        didSet {
+            updateEditModeAppearance()
+        }
+    }
+
+    // Saved custom frames normalized (x/w, y/h, w/w, h/h)
+    private var customFrames: [String: [CGFloat]] = [:]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -63,192 +104,304 @@ class DecadeKeypadView: UIView {
         layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         clipsToBounds = true
 
-        mainStack.axis = .vertical
-        mainStack.distribution = .fillEqually
-        mainStack.spacing = 8
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(mainStack)
+        containerView.backgroundColor = .clear
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(containerView)
 
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            mainStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            mainStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            mainStack.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            containerView.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            containerView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            containerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            containerView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -6),
         ])
 
+        loadSavedCustomLayout()
         rebuildKeypad()
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyButtonPositions()
+    }
+
+    // ============================================================
+    // MARK: - Rebuild Keypad
+    // ============================================================
+
     func rebuildKeypad() {
-        mainStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        buttons.forEach { $0.removeFromSuperview() }
+        buttons.removeAll()
+
+        let glyphColor = UIColor(red: 0.43, green: 0.49, blue: 0.66, alpha: 1.0)
+
+        let items: [(title: String, c1: Int32, c2: Int32, defaultCol: Int, defaultRow: Int, totalCols: Int, totalRows: Int)]
 
         switch currentLayout {
         case .arrows:
-            buildArrowsLayout()
-        case .numpad:
-            buildNumpadLayout()
-        case .combined:
-            buildCombinedLayout()
-        }
-    }
+            // Layout 1: Decade Mũi tên (Arrows - Pure Navigation, NO NUMBERS)
+            // User requested: Add '*' and '#' at the two corners in Row 3!
+            // Row 0: [ L ]  [ ↖ ]  [ ↑ ]  [ ↗ ]  [ R ]
+            // Row 1: [   ]  [ ← ]  [ F ]  [ → ]  [   ]
+            // Row 2: [ * ]  [ ↙ ]  [ ↓ ]  [ ↘ ]  [ # ]
+            let upLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -3) : (0, 0)
+            let upRightCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -4) : (0, 0)
+            let downLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -3) : (0, 0)
+            let downRightCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -4) : (0, 0)
+            let soft1Code: Int32 = showSoftKeys ? -6 : 0
+            let soft2Code: Int32 = showSoftKeys ? -7 : 0
+            let fireCode: Int32 = showFireKey ? -5 : 0
 
-    // ============================================================
-    // MARK: - Layout 1: Decade Mũi tên (Arrows - Pure Navigation, NO NUMBERS)
-    // ============================================================
-
-    private func buildArrowsLayout() {
-        // Pure navigation keycodes (negative J2ME values, never characters/numbers):
-        // Canvas.UP = -1, DOWN = -2, LEFT = -3, RIGHT = -4, FIRE = -5, SOFT1 = -6, SOFT2 = -7
-        // Diagonals send dual navigation codes (e.g. -1 and -3 for UP+LEFT)
-
-        let upLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -3) : (0, 0)
-        let upRightCodes: (Int32, Int32) = showDiagonalKeys ? (-1, -4) : (0, 0)
-        let downLeftCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -3) : (0, 0)
-        let downRightCodes: (Int32, Int32) = showDiagonalKeys ? (-2, -4) : (0, 0)
-
-        let soft1Code: Int32 = showSoftKeys ? -6 : 0
-        let soft2Code: Int32 = showSoftKeys ? -7 : 0
-        let fireCode: Int32 = showFireKey ? -5 : 0
-
-        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
-            // Row 1: [ L ]  [ ↖ ]  [ ↑ ]  [ ↗ ]  [ R ]
-            [
-                (showSoftKeys ? "L" : "", soft1Code, 0, !showSoftKeys),
-                (showDiagonalKeys ? "↖" : "", upLeftCodes.0, upLeftCodes.1, !showDiagonalKeys),
-                ("↑", -1, 0, false),
-                (showDiagonalKeys ? "↗" : "", upRightCodes.0, upRightCodes.1, !showDiagonalKeys),
-                (showSoftKeys ? "R" : "", soft2Code, 0, !showSoftKeys)
-            ],
-            // Row 2: (empty) [ ← ]  [ F ]  [ → ] (empty)
-            [
-                ("", 0, 0, true),
-                ("←", -3, 0, false),
-                (showFireKey ? "F" : "", fireCode, 0, !showFireKey),
-                ("→", -4, 0, false),
-                ("", 0, 0, true)
-            ],
-            // Row 3: (empty) [ ↙ ]  [ ↓ ]  [ ↘ ] (empty)
-            [
-                ("", 0, 0, true),
-                (showDiagonalKeys ? "↙" : "", downLeftCodes.0, downLeftCodes.1, !showDiagonalKeys),
-                ("↓", -2, 0, false),
-                (showDiagonalKeys ? "↘" : "", downRightCodes.0, downRightCodes.1, !showDiagonalKeys),
-                ("", 0, 0, true)
-            ]
-        ]
-
-        populateGrid(layout)
-    }
-
-    // ============================================================
-    // MARK: - Layout 2: Bàn phím số (Numpad Phone 0-9, *, #)
-    // ============================================================
-
-    private func buildNumpadLayout() {
-        // Standard phone numpad layout:
-        // Row 1: 1 (49), 2 (50), 3 (51)
-        // Row 2: 4 (52), 5 (53), 6 (54)
-        // Row 3: 7 (55), 8 (56), 9 (57)
-        // Row 4: * (42), 0 (48), # (35)
-        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
-            [
-                ("1", 49, 0, false),
-                ("2", 50, 0, false),
-                ("3", 51, 0, false)
-            ],
-            [
-                ("4", 52, 0, false),
-                ("5", 53, 0, false),
-                ("6", 54, 0, false)
-            ],
-            [
-                ("7", 55, 0, false),
-                ("8", 56, 0, false),
-                ("9", 57, 0, false)
-            ],
-            [
-                ("*", 42, 0, false),
-                ("0", 48, 0, false),
-                ("#", 35, 0, false)
-            ]
-        ]
-        populateGrid(layout)
-    }
-
-    // ============================================================
-    // MARK: - Layout 3: Kết hợp (Combined: Numpad + Arrows)
-    // ============================================================
-
-    private func buildCombinedLayout() {
-        let layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]] = [
-            [
-                ("1", 49, 0, false),
-                ("2", 50, 0, false),
-                ("3", 51, 0, false),
-                ("↑", -1, 0, false),
-                ("L", -6, 0, false)
-            ],
-            [
-                ("4", 52, 0, false),
-                ("5", 53, 0, false),
-                ("6", 54, 0, false),
-                ("F", -5, 0, false),
-                ("R", -7, 0, false)
-            ],
-            [
-                ("7", 55, 0, false),
-                ("8", 56, 0, false),
-                ("9", 57, 0, false),
-                ("↓", -2, 0, false),
-                ("#", 35, 0, false)
-            ]
-        ]
-        populateGrid(layout)
-    }
-
-    private func populateGrid(_ layout: [[(title: String, c1: Int32, c2: Int32, isEmpty: Bool)]]) {
-        let glyphColor = UIColor(red: 0.43, green: 0.49, blue: 0.66, alpha: 1.0)
-
-        for row in layout {
-            let rowStack = UIStackView()
-            rowStack.axis = .horizontal
-            rowStack.distribution = .fillEqually
-            rowStack.spacing = 8
-
-            for item in row {
-                if item.isEmpty {
-                    let spacer = UIView()
-                    spacer.backgroundColor = .clear
-                    spacer.isUserInteractionEnabled = false
-                    rowStack.addArrangedSubview(spacer)
-                    continue
-                }
-
-                let btn = DecadeKeyButton(c1: item.c1, c2: item.c2)
-                btn.setTitle(item.title, for: .normal)
-                btn.titleLabel?.font = .systemFont(ofSize: 20, weight: .semibold)
-                btn.setTitleColor(glyphColor, for: .normal)
-                btn.backgroundColor = UIColor(white: 1.0, alpha: keypadAlphaValue)
-                btn.layer.cornerRadius = 12
-                btn.layer.borderWidth = 1.0
-                btn.layer.borderColor = UIColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.60).cgColor
-
-                btn.layer.shadowColor = UIColor(red: 0.2, green: 0.25, blue: 0.35, alpha: 0.12).cgColor
-                btn.layer.shadowOffset = CGSize(width: 0, height: 1.5)
-                btn.layer.shadowRadius = 2.0
-                btn.layer.shadowOpacity = 1.0
-
-                btn.addTarget(self, action: #selector(buttonDown(_:)), for: .touchDown)
-                btn.addTarget(self, action: #selector(buttonUp(_:)),
-                              for: [.touchUpInside, .touchUpOutside, .touchCancel])
-
-                rowStack.addArrangedSubview(btn)
+            var list: [(String, Int32, Int32, Int, Int, Int, Int)] = []
+            if showSoftKeys {
+                list.append(("L", soft1Code, 0, 0, 0, 5, 3))
+                list.append(("R", soft2Code, 0, 4, 0, 5, 3))
             }
-            mainStack.addArrangedSubview(rowStack)
+            if showDiagonalKeys {
+                list.append(("↖", upLeftCodes.0, upLeftCodes.1, 1, 0, 5, 3))
+                list.append(("↗", upRightCodes.0, upRightCodes.1, 3, 0, 5, 3))
+                list.append(("↙", downLeftCodes.0, downLeftCodes.1, 1, 2, 5, 3))
+                list.append(("↘", downRightCodes.0, downRightCodes.1, 3, 2, 5, 3))
+            }
+            list.append(("↑", -1, 0, 2, 0, 5, 3))
+            list.append(("←", -3, 0, 1, 1, 5, 3))
+            if showFireKey {
+                list.append(("F", fireCode, 0, 2, 1, 5, 3))
+            }
+            list.append(("→", -4, 0, 3, 1, 5, 3))
+            list.append(("↓", -2, 0, 2, 2, 5, 3))
+
+            // * and # at corners of Row 2:
+            list.append(("*", 42, 0, 0, 2, 5, 3))
+            list.append(("#", 35, 0, 4, 2, 5, 3))
+
+            items = list
+
+        case .numpad:
+            // Layout 2: Phone Numpad
+            items = [
+                ("1", 49, 0, 0, 0, 3, 4),
+                ("2", 50, 0, 1, 0, 3, 4),
+                ("3", 51, 0, 2, 0, 3, 4),
+                ("4", 52, 0, 0, 1, 3, 4),
+                ("5", 53, 0, 1, 1, 3, 4),
+                ("6", 54, 0, 2, 1, 3, 4),
+                ("7", 55, 0, 0, 2, 3, 4),
+                ("8", 56, 0, 1, 2, 3, 4),
+                ("9", 57, 0, 2, 2, 3, 4),
+                ("*", 42, 0, 0, 3, 3, 4),
+                ("0", 48, 0, 1, 3, 3, 4),
+                ("#", 35, 0, 2, 3, 3, 4),
+            ]
+
+        case .combined:
+            // Layout 3: Combined
+            items = [
+                ("1", 49, 0, 0, 0, 5, 3),
+                ("2", 50, 0, 1, 0, 5, 3),
+                ("3", 51, 0, 2, 0, 5, 3),
+                ("↑", -1, 0, 3, 0, 5, 3),
+                ("L", -6, 0, 4, 0, 5, 3),
+
+                ("4", 52, 0, 0, 1, 5, 3),
+                ("5", 53, 0, 1, 1, 5, 3),
+                ("6", 54, 0, 2, 1, 5, 3),
+                ("F", -5, 0, 3, 1, 5, 3),
+                ("R", -7, 0, 4, 1, 5, 3),
+
+                ("7", 55, 0, 0, 2, 5, 3),
+                ("8", 56, 0, 1, 2, 5, 3),
+                ("9", 57, 0, 2, 2, 5, 3),
+                ("↓", -2, 0, 3, 2, 5, 3),
+                ("#", 35, 0, 4, 2, 5, 3),
+            ]
+        }
+
+        for item in items {
+            let btn = DecadeKeyButton(title: item.title, c1: item.c1, c2: item.c2,
+                                      defaultCol: item.defaultCol, defaultRow: item.defaultRow,
+                                      totalCols: item.totalCols, totalRows: item.totalRows)
+            btn.setTitle(item.title, for: .normal)
+            btn.titleLabel?.font = .systemFont(ofSize: 20, weight: .semibold)
+            btn.setTitleColor(glyphColor, for: .normal)
+            btn.backgroundColor = UIColor(white: 1.0, alpha: keypadAlphaValue)
+            btn.layer.cornerRadius = 12
+            btn.layer.borderWidth = 1.0
+            btn.layer.borderColor = UIColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.60).cgColor
+
+            btn.layer.shadowColor = UIColor(red: 0.2, green: 0.25, blue: 0.35, alpha: 0.12).cgColor
+            btn.layer.shadowOffset = CGSize(width: 0, height: 1.5)
+            btn.layer.shadowRadius = 2.0
+            btn.layer.shadowOpacity = 1.0
+
+            btn.addTarget(self, action: #selector(buttonDown(_:)), for: .touchDown)
+            btn.addTarget(self, action: #selector(buttonUp(_:)),
+                          for: [.touchUpInside, .touchUpOutside, .touchCancel])
+
+            // Pan gesture for dragging in edit mode
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            pan.delegate = self
+            pan.isEnabled = isEditLayoutMode
+            btn.addGestureRecognizer(pan)
+
+            // Pinch gesture for resizing in resize mode
+            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+            pinch.delegate = self
+            pinch.isEnabled = isResizeLayoutMode
+            btn.addGestureRecognizer(pinch)
+
+            containerView.addSubview(btn)
+            buttons.append(btn)
+        }
+
+        updateKeysVisibility()
+        updateEditModeAppearance()
+        setNeedsLayout()
+    }
+
+    // ============================================================
+    // MARK: - Key Positioning & Resizing
+    // ============================================================
+
+    private func applyButtonPositions() {
+        let containerW = containerView.bounds.width
+        let containerH = containerView.bounds.height
+        guard containerW > 20, containerH > 20 else { return }
+
+        for btn in buttons {
+            if let norm = customFrames[btn.keyTitle], norm.count == 4 {
+                let x = norm[0] * containerW
+                let y = norm[1] * containerH
+                let w = norm[2] * containerW
+                let h = norm[3] * containerH
+                btn.frame = CGRect(x: x, y: y, width: max(32, w), height: max(32, h))
+            } else {
+                // Default grid calculation
+                let totalCols = CGFloat(btn.totalCols)
+                let totalRows = CGFloat(btn.totalRows)
+                let spacing: CGFloat = 8
+                let availableW = containerW - (totalCols - 1) * spacing
+                let availableH = containerH - (totalRows - 1) * spacing
+                let cellW = availableW / totalCols
+                let cellH = availableH / totalRows
+
+                let x = CGFloat(btn.defaultCol) * (cellW + spacing)
+                let y = CGFloat(btn.defaultRow) * (cellH + spacing)
+                btn.frame = CGRect(x: x, y: y, width: cellW, height: cellH)
+            }
         }
     }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        guard isEditLayoutMode, let btn = gesture.view as? DecadeKeyButton else { return }
+        let translation = gesture.translation(in: containerView)
+        var newCenter = CGPoint(x: btn.center.x + translation.x, y: btn.center.y + translation.y)
+
+        let halfW = btn.bounds.width / 2
+        let halfH = btn.bounds.height / 2
+        newCenter.x = max(halfW, min(containerView.bounds.width - halfW, newCenter.x))
+        newCenter.y = max(halfH, min(containerView.bounds.height - halfH, newCenter.y))
+
+        btn.center = newCenter
+        gesture.setTranslation(.zero, in: containerView)
+
+        saveButtonPosition(btn)
+    }
+
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard isResizeLayoutMode, let btn = gesture.view as? DecadeKeyButton else { return }
+        let scale = gesture.scale
+        let newWidth = max(36, min(140, btn.bounds.width * scale))
+        let newHeight = max(36, min(140, btn.bounds.height * scale))
+        btn.bounds = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
+        gesture.scale = 1.0
+
+        saveButtonPosition(btn)
+    }
+
+    private func saveButtonPosition(_ btn: DecadeKeyButton) {
+        let containerW = containerView.bounds.width
+        let containerH = containerView.bounds.height
+        guard containerW > 0, containerH > 0 else { return }
+
+        let normX = btn.frame.origin.x / containerW
+        let normY = btn.frame.origin.y / containerH
+        let normW = btn.frame.size.width / containerW
+        let normH = btn.frame.size.height / containerH
+
+        customFrames[btn.keyTitle] = [normX, normY, normW, normH]
+    }
+
+    func saveCustomLayout() {
+        let key = "decade_keypad_frames_\(gameId)_\(currentLayout.rawValue)"
+        UserDefaults.standard.set(customFrames, forKey: key)
+    }
+
+    func loadSavedCustomLayout() {
+        let key = "decade_keypad_frames_\(gameId)_\(currentLayout.rawValue)"
+        if let saved = UserDefaults.standard.dictionary(forKey: key) as? [String: [CGFloat]] {
+            customFrames = saved
+        } else {
+            customFrames = [:]
+        }
+
+        let hiddenKey = "decade_hidden_keys_\(gameId)"
+        if let savedHidden = UserDefaults.standard.stringArray(forKey: hiddenKey) {
+            hiddenKeys = Set(savedHidden)
+        } else {
+            hiddenKeys = []
+        }
+    }
+
+    func resetLayout() {
+        customFrames.removeAll()
+        let key = "decade_keypad_frames_\(gameId)_\(currentLayout.rawValue)"
+        UserDefaults.standard.removeObject(forKey: key)
+        rebuildKeypad()
+    }
+
+    func finishEditingLayout() {
+        isEditLayoutMode = false
+        isResizeLayoutMode = false
+        saveCustomLayout()
+    }
+
+    private func updateEditModeAppearance() {
+        for btn in buttons {
+            for g in btn.gestureRecognizers ?? [] {
+                if g is UIPanGestureRecognizer {
+                    g.isEnabled = isEditLayoutMode
+                } else if g is UIPinchGestureRecognizer {
+                    g.isEnabled = isResizeLayoutMode
+                }
+            }
+
+            if isEditLayoutMode {
+                btn.layer.borderColor = UIColor.systemBlue.cgColor
+                btn.layer.borderWidth = 2.0
+            } else if isResizeLayoutMode {
+                btn.layer.borderColor = UIColor.systemOrange.cgColor
+                btn.layer.borderWidth = 2.0
+            } else {
+                btn.layer.borderColor = UIColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 0.60).cgColor
+                btn.layer.borderWidth = 1.0
+            }
+        }
+    }
+
+    private func updateKeysVisibility() {
+        for btn in buttons {
+            let isHidden = hiddenKeys.contains(btn.keyTitle)
+            btn.isHidden = isHidden
+            btn.isUserInteractionEnabled = !isHidden
+        }
+    }
+
+    // ============================================================
+    // MARK: - Key Press Handling
+    // ============================================================
 
     @objc private func buttonDown(_ sender: DecadeKeyButton) {
+        guard !isEditLayoutMode && !isResizeLayoutMode else { return }
         haptic.impactOccurred(intensity: 0.6)
         activeCode1 = sender.c1
         activeCode2 = sender.c2
@@ -265,6 +418,7 @@ class DecadeKeypadView: UIView {
     }
 
     @objc private func buttonUp(_ sender: DecadeKeyButton) {
+        guard !isEditLayoutMode && !isResizeLayoutMode else { return }
         repeatTimer?.invalidate()
         repeatTimer = nil
 
@@ -299,14 +453,26 @@ class DecadeKeypadView: UIView {
     }
 }
 
-// Custom UIButton holding keycodes
-private class DecadeKeyButton: UIButton {
+// Custom UIButton holding keycodes & grid info
+class DecadeKeyButton: UIButton {
+    let keyTitle: String
     let c1: Int32
     let c2: Int32
+    let defaultCol: Int
+    let defaultRow: Int
+    let totalCols: Int
+    let totalRows: Int
 
-    init(c1: Int32, c2: Int32) {
+    init(title: String, c1: Int32, c2: Int32,
+         defaultCol: Int, defaultRow: Int,
+         totalCols: Int, totalRows: Int) {
+        self.keyTitle = title
         self.c1 = c1
         self.c2 = c2
+        self.defaultCol = defaultCol
+        self.defaultRow = defaultRow
+        self.totalCols = totalCols
+        self.totalRows = totalRows
         super.init(frame: .zero)
     }
 

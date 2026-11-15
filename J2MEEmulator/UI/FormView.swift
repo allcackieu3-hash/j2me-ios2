@@ -363,7 +363,7 @@ class FormView: UIView, UITextFieldDelegate {
     }
 
     @objc private func showFormMenu(_ sender: UIButton) {
-        guard let parentVC = self.window?.rootViewController else { return }
+        guard let parentVC = self.topMostPresentedViewController else { return }
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         for cmd in commands {
             alert.addAction(UIAlertAction(title: cmd.label, style: .default) { [weak self] _ in
@@ -606,13 +606,14 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
         if let indexPath = tableView.indexPathForRow(at: point) {
             selectedRow = indexPath.row
             tableView.reloadData()
+            j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(indexPath.row))
             let cell = tableView.cellForRow(at: indexPath)
             showListPopupMenu(sourceView: cell ?? tableView)
         }
     }
 
     private func showListPopupMenu(sourceView: UIView) {
-        guard let parentVC = self.window?.rootViewController else { return }
+        guard let parentVC = self.topMostPresentedViewController else { return }
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         // Show commands matching Screenshot 2: "Chạy ứng dụng", "Dừng ứng dụng", "Cài đặt cơ bản", etc.
@@ -623,7 +624,9 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
 
         let cmdList = displayCmds.isEmpty ? commands : displayCmds
         for cmd in cmdList {
-            alert.addAction(UIAlertAction(title: cmd.label, style: .default) { _ in
+            alert.addAction(UIAlertAction(title: cmd.label, style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(self.selectedRow))
                 j2me_input_post_key(Int32(J2ME_UI_COMMAND_ACTION), cmd.id)
             })
         }

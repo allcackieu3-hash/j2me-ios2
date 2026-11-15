@@ -56,16 +56,18 @@ class GameViewController: UIViewController {
     private let topToolbar = UIView()
     private let titleLabel = UILabel()
     private let tabStripContainer = UIView()
+    private let tabScrollView = UIScrollView()
     private let tabStrip = UIStackView()
+    private var tabButtons: [UIButton] = []
+    private var activeTabIndex: Int = 0
 
     // Quick floating unhide keypad button
     private let floatingShowKeypadBtn = UIButton(type: .system)
 
-    // Toolbar action buttons
+    // Toolbar action buttons (Camera button removed per user request)
     private let multiTabBtn = UIButton(type: .system)
     private let addTabBtn = UIButton(type: .system)
     private let textInputBtn = UIButton(type: .system)
-    private let screenshotBtn = UIButton(type: .system)
     private let menuBtn = UIButton(type: .system)
 
     // Legacy controls (if in ngage mode)
@@ -201,13 +203,11 @@ class GameViewController: UIViewController {
         styleToolbarButton(multiTabBtn, title: "++", action: #selector(multiTabTapped))
         styleToolbarButton(addTabBtn, title: "+", action: #selector(addTabTapped))
         styleToolbarButton(textInputBtn, title: "⌨", action: #selector(promptTextInput))
-        styleToolbarButton(screenshotBtn, title: "📷", action: #selector(takeScreenshotTapped))
         styleToolbarButton(menuBtn, title: "⋮", action: #selector(showMenu))
 
         actionStack.addArrangedSubview(multiTabBtn)
         actionStack.addArrangedSubview(addTabBtn)
         actionStack.addArrangedSubview(textInputBtn)
-        actionStack.addArrangedSubview(screenshotBtn)
         actionStack.addArrangedSubview(menuBtn)
 
         // 2. Tab Strip Bar (Dark Navy #1C2534)
@@ -215,25 +215,36 @@ class GameViewController: UIViewController {
         tabStripContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tabStripContainer)
 
+        tabScrollView.showsHorizontalScrollIndicator = false
+        tabScrollView.translatesAutoresizingMaskIntoConstraints = false
+        tabStripContainer.addSubview(tabScrollView)
+
         tabStrip.axis = .horizontal
         tabStrip.spacing = 6
         tabStrip.alignment = .center
         tabStrip.translatesAutoresizingMaskIntoConstraints = false
-        tabStripContainer.addSubview(tabStrip)
+        tabScrollView.addSubview(tabStrip)
 
-        // Active Royal Blue Tab [ 1 ] (#1E69D2)
-        let tab1 = UIButton(type: .system)
-        tab1.setTitle("1", for: .normal)
-        tab1.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
-        tab1.setTitleColor(.white, for: .normal)
-        tab1.backgroundColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
-        tab1.layer.cornerRadius = 4
-        tab1.contentEdgeInsets = UIEdgeInsets(top: 4, left: 14, bottom: 4, right: 14)
-        tabStrip.addArrangedSubview(tab1)
+        NSLayoutConstraint.activate([
+            tabScrollView.topAnchor.constraint(equalTo: tabStripContainer.topAnchor),
+            tabScrollView.leadingAnchor.constraint(equalTo: tabStripContainer.leadingAnchor, constant: 8),
+            tabScrollView.trailingAnchor.constraint(equalTo: tabStripContainer.trailingAnchor, constant: -8),
+            tabScrollView.bottomAnchor.constraint(equalTo: tabStripContainer.bottomAnchor),
+
+            tabStrip.topAnchor.constraint(equalTo: tabScrollView.topAnchor),
+            tabStrip.leadingAnchor.constraint(equalTo: tabScrollView.leadingAnchor),
+            tabStrip.trailingAnchor.constraint(equalTo: tabScrollView.trailingAnchor),
+            tabStrip.bottomAnchor.constraint(equalTo: tabScrollView.bottomAnchor),
+            tabStrip.heightAnchor.constraint(equalTo: tabScrollView.heightAnchor),
+        ])
+
+        // Add initial Tab 1
+        addTabs(count: 1)
 
         // 3. Virtual Keypad at bottom
         let keypad = DecadeKeypadView()
         let gid = appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
+        keypad.gameId = gid
         let savedLayout = UserDefaults.standard.object(forKey: "keypad_layout_\(gid)") as? Int ?? 0
         if savedLayout == 1 {
             keypad.currentLayout = .combined
@@ -296,9 +307,6 @@ class GameViewController: UIViewController {
             tabStripContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tabStripContainer.heightAnchor.constraint(equalToConstant: 34),
 
-            tabStrip.leadingAnchor.constraint(equalTo: tabStripContainer.leadingAnchor, constant: 12),
-            tabStrip.centerYAnchor.constraint(equalTo: tabStripContainer.centerYAnchor),
-
             // Keypad at bottom
             keypad.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             keypad.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -350,29 +358,93 @@ class GameViewController: UIViewController {
     // MARK: - Toolbar Actions
     // ============================================================
 
+    // ============================================================
+    // MARK: - Tab Management (+ and ++)
+    // ============================================================
+
+    func addTabs(count: Int) {
+        let currentTotal = tabButtons.count
+        let newTotal = min(100, currentTotal + count)
+        guard newTotal > currentTotal else { return }
+
+        for i in currentTotal..<newTotal {
+            let tabBtn = UIButton(type: .system)
+            tabBtn.setTitle("\(i + 1)", for: .normal)
+            tabBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+            tabBtn.layer.cornerRadius = 4
+            tabBtn.contentEdgeInsets = UIEdgeInsets(top: 4, left: 14, bottom: 4, right: 14)
+            tabBtn.tag = i
+            tabBtn.addTarget(self, action: #selector(tabButtonTapped(_:)), for: .touchUpInside)
+
+            tabStrip.addArrangedSubview(tabBtn)
+            tabButtons.append(tabBtn)
+        }
+
+        // Switch to the latest tab
+        selectTab(at: newTotal - 1)
+    }
+
+    @objc private func tabButtonTapped(_ sender: UIButton) {
+        selectTab(at: sender.tag)
+    }
+
+    private func selectTab(at index: Int) {
+        guard index >= 0 && index < tabButtons.count else { return }
+        activeTabIndex = index
+
+        for (i, btn) in tabButtons.enumerated() {
+            if i == index {
+                btn.backgroundColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+                btn.setTitleColor(.white, for: .normal)
+            } else {
+                btn.backgroundColor = UIColor(red: 0.16, green: 0.20, blue: 0.27, alpha: 1.0)
+                btn.setTitleColor(UIColor(white: 0.85, alpha: 1.0), for: .normal)
+            }
+        }
+
+        // Scroll tab into view
+        let targetBtn = tabButtons[index]
+        tabScrollView.scrollRectToVisible(targetBtn.frame, animated: true)
+
+        // Inform J2ME engine / AngelChip about the slot selection
+        j2me_input_post_key(Int32(J2ME_UI_LIST_SELECT), Int32(index))
+        showToast(message: "Chuyển sang Tab \(index + 1)")
+    }
+
     @objc private func multiTabTapped() {
-        showToast(message: "Mở nhiều tab: Tab 1 (Chính) đang hoạt động.")
+        let maxAvailable = 100 - tabButtons.count
+        if maxAvailable <= 0 {
+            showToast(message: "Đã đạt tối đa 100 tab")
+            return
+        }
+        let alert = UIAlertController(title: "Mở nhiều tab", message: "Nhập số tab muốn thêm (tối đa \(maxAvailable) tab):", preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.text = String(min(5, maxAvailable))
+            tf.keyboardType = .numberPad
+        }
+        alert.addAction(UIAlertAction(title: "Hủy", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Mở", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            let count = Int(alert.textFields?.first?.text?.trimmingCharacters(in: .whitespaces) ?? "") ?? 0
+            let safeCount = max(0, min(count, maxAvailable))
+            if safeCount > 0 {
+                self.addTabs(count: safeCount)
+                self.showToast(message: "Đã mở thêm \(safeCount) tab mới")
+            } else {
+                self.showToast(message: "Số lượng tab không hợp lệ")
+            }
+        })
+        present(alert, animated: true)
     }
 
     @objc private func addTabTapped() {
-        showToast(message: "Thêm tab: Tab 1 (Chính) đang hoạt động.")
-    }
-
-    @objc private func takeScreenshotTapped() {
-        softKeyHaptic.impactOccurred(intensity: 0.7)
-        let renderer = UIGraphicsImageRenderer(bounds: emulatorView.bounds)
-        let image = renderer.image { ctx in
-            emulatorView.layer.render(in: ctx.cgContext)
+        let maxAvailable = 100 - tabButtons.count
+        if maxAvailable <= 0 {
+            showToast(message: "Đã đạt tối đa 100 tab")
+            return
         }
-        UIImageWriteToSavedPhotosAlbum(image, self, #selector(imageSaved(_:didFinishSavingWithError:contextInfo:)), nil)
-    }
-
-    @objc private func imageSaved(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeMutableRawPointer?) {
-        if error == nil {
-            showToast(message: "Đã chụp và lưu ảnh vào Photos!")
-        } else {
-            showToast(message: "Không thể lưu ảnh (chưa cấp quyền Photos).")
-        }
+        addTabs(count: 1)
+        showToast(message: "Đã thêm Tab \(tabButtons.count)")
     }
 
     // ============================================================
@@ -460,49 +532,62 @@ class GameViewController: UIViewController {
     // ============================================================
 
     private func showVirtualKeyboardMenu() {
-        let alert = UIAlertController(title: "Bàn phím ảo Decade", message: "Tuỳ chỉnh bố cục, kích thước và phím bấm", preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
-        // 1. Ẩn / Hiện bàn phím
-        let hideTitle = isKeypadHidden ? "👁 Hiện bàn phím ảo" : "👁 Ẩn bàn phím ảo"
+        // 1. Bàn phím ảo
+        let hideTitle = isKeypadHidden ? "Bàn phím ảo (Đang tắt)" : "Bàn phím ảo (Đang bật)"
         alert.addAction(UIAlertAction(title: hideTitle, style: .default) { [weak self] _ in
             self?.toggleKeypadVisibility()
         })
 
-        // 2. Công tắc cấu trúc phím
-        alert.addAction(UIAlertAction(title: "🔄 Công tắc cấu trúc phím", style: .default) { [weak self] _ in
+        // 2. Chế độ chỉnh sửa cấu trúc phím
+        alert.addAction(UIAlertAction(title: "Chế độ chỉnh sửa cấu trúc phím", style: .default) { [weak self] _ in
+            guard let self = self, let keypad = self.decadeKeypadView else { return }
+            if self.isKeypadHidden {
+                self.isKeypadHidden = false
+                self.updateKeypadVisibility()
+            }
+            keypad.isEditLayoutMode = true
+            keypad.isResizeLayoutMode = false
+            self.showToast(message: "Chế độ chỉnh sửa: Kéo thả các phím tự do")
+        })
+
+        // 3. Chế độ thay đổi kích cỡ cấu trúc phím
+        alert.addAction(UIAlertAction(title: "Chế độ thay đổi kích cỡ cấu trúc phím", style: .default) { [weak self] _ in
+            guard let self = self, let keypad = self.decadeKeypadView else { return }
+            if self.isKeypadHidden {
+                self.isKeypadHidden = false
+                self.updateKeypadVisibility()
+            }
+            keypad.isResizeLayoutMode = true
+            keypad.isEditLayoutMode = false
+            self.showToast(message: "Chế độ thay đổi kích cỡ: Dùng 2 ngón tay thu phóng phím")
+        })
+
+        // 4. Hoàn thành chế độ chỉnh sửa
+        alert.addAction(UIAlertAction(title: "Hoàn thành chế độ chỉnh sửa", style: .default) { [weak self] _ in
+            guard let self = self, let keypad = self.decadeKeypadView else { return }
+            keypad.finishEditingLayout()
+            self.showToast(message: "Hoàn thành chế độ chỉnh sửa: Đã lưu vị trí phím")
+        })
+
+        // 5. Công tắc cấu trúc phím
+        alert.addAction(UIAlertAction(title: "Công tắc cấu trúc phím", style: .default) { [weak self] _ in
             self?.showLayoutSwitchDialog()
         })
 
-        // 3. Tuỳ chỉnh kích thước bàn phím
-        alert.addAction(UIAlertAction(title: "📐 Tuỳ chỉnh kích thước phím", style: .default) { [weak self] _ in
-            self?.showKeypadSizeDialog()
-        })
-
-        // 4. Độ trong suốt bàn phím
-        alert.addAction(UIAlertAction(title: "💧 Độ mờ / Trong suốt bàn phím", style: .default) { [weak self] _ in
-            self?.showKeypadOpacityDialog()
-        })
-
-        // 5. Ẩn các phím lẻ
-        alert.addAction(UIAlertAction(title: "✂ Ẩn / Hiện từng phím bấm", style: .default) { [weak self] _ in
-            self?.showIndividualKeysToggleDialog()
-        })
-
-        // 6. Đặt lại bố trí mặc định
-        alert.addAction(UIAlertAction(title: "↺ Đặt lại bố trí mặc định", style: .destructive) { [weak self] _ in
+        // 6. Ẩn nút
+        alert.addAction(UIAlertAction(title: "Ẩn nút", style: .default) { [weak self] _ in
             guard let self = self, let keypad = self.decadeKeypadView else { return }
-            keypad.currentLayout = .arrows
-            keypad.showDiagonalKeys = true
-            keypad.showSoftKeys = true
-            keypad.showFireKey = true
-            keypad.keypadAlphaValue = 0.70
-            self.setKeypadHeight(245)
-            self.isKeypadHidden = false
-            self.updateKeypadVisibility()
-            self.showToast(message: "Đã đặt lại bàn phím mặc định")
+            let gid = self.appName.replacingOccurrences(of: "[^a-zA-Z0-9._-]", with: "_", options: .regularExpression)
+            let dialog = DecadeHideButtonsDialog(gameId: gid, currentHiddenKeys: keypad.hiddenKeys) { [weak self] newHiddenKeys in
+                keypad.hiddenKeys = newHiddenKeys
+                self?.showToast(message: "Đã cập nhật hiển thị nút")
+            }
+            self.present(dialog, animated: true)
         })
 
-        alert.addAction(UIAlertAction(title: "Quay lại", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Đóng", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
             popover.sourceView = menuBtn

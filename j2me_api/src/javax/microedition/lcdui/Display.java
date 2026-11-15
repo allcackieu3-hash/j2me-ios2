@@ -179,6 +179,12 @@ public class Display {
                         } catch (Throwable t) {
                             System.out.println("[Display] Error reading TextBox text: " + t);
                         }
+                    } else if (current instanceof Form) {
+                        try {
+                            ((Form) current).syncFromNative();
+                        } catch (Throwable t) {
+                            System.out.println("[Display] Error syncing Form: " + t);
+                        }
                     }
                     if (current != null) current.fireCommandAction(cmdId);
                 } else if (type == 11 && current instanceof List) {

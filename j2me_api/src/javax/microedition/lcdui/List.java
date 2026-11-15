@@ -46,7 +46,12 @@ public class List extends Screen implements Choice {
         strings.clear(); images.clear(); selected.clear(); selectedIndex = -1;
         if (isShown()) showNative();
     }
-    public int getSelectedIndex() { return selectedIndex; }
+    public int getSelectedIndex() {
+        if (selectedIndex >= 0 && selectedIndex < strings.size()) {
+            return selectedIndex;
+        }
+        return strings.isEmpty() ? -1 : 0;
+    }
     public String getString(int elementNum) { return strings.get(elementNum); }
     public Image getImage(int elementNum) { return images.get(elementNum); }
     public void insert(int elementNum, String stringPart, Image imagePart) {
