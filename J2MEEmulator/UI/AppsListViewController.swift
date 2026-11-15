@@ -312,6 +312,8 @@ class AppsListViewController: UIViewController,
                 UIColor(white: 0.22, alpha: 1).setFill()
                 UIBezierPath(rect: rect).fill()
                 img.draw(in: rect)
+            } else if let decadeLogo = UIImage(named: "DecadeLogo") {
+                decadeLogo.draw(in: rect)
             } else {
                 let pair = placeholderGradients[index % placeholderGradients.count]
                 let cgCtx = ctx.cgContext
