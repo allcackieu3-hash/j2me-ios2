@@ -11,6 +11,7 @@ class DecadeHelpViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        overrideUserInterfaceStyle = .light
         view.backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
         title = "Trợ giúp & Hướng dẫn"
 

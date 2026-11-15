@@ -24,7 +24,8 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
+        overrideUserInterfaceStyle = .dark
+        view.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1.0)
         title = "Thay IP Phiên Bản"
 
         setupNavBar()
@@ -62,10 +63,12 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
         // Card 1: Global Server Destination Override (Matching APK ChangeIpActivity)
         let globalCard = UIView()
-        globalCard.backgroundColor = .white
+        globalCard.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
         globalCard.layer.cornerRadius = 12
+        globalCard.layer.borderWidth = 1
+        globalCard.layer.borderColor = UIColor(red: 0.28, green: 0.35, blue: 0.46, alpha: 1.0).cgColor
         globalCard.layer.shadowColor = UIColor.black.cgColor
-        globalCard.layer.shadowOpacity = 0.05
+        globalCard.layer.shadowOpacity = 0.2
         globalCard.layer.shadowOffset = CGSize(width: 0, height: 2)
         globalCard.layer.shadowRadius = 4
         globalCard.translatesAutoresizingMaskIntoConstraints = false
@@ -85,7 +88,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         let switchLabel = UILabel()
         switchLabel.text = "Đổi máy chủ kết nối của game"
         switchLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        switchLabel.textColor = .black
+        switchLabel.textColor = .white
         switchRow.addArrangedSubview(switchLabel)
 
         globalSwitch.addTarget(self, action: #selector(switchChanged), for: .valueChanged)
@@ -95,7 +98,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         let noteLabel = UILabel()
         noteLabel.text = "Chức năng này đổi IP/cổng máy chủ đích của game (vd: vào server riêng), không phải proxy."
         noteLabel.font = .systemFont(ofSize: 12)
-        noteLabel.textColor = .secondaryLabel
+        noteLabel.textColor = UIColor(red: 0.82, green: 0.86, blue: 0.95, alpha: 1.0)
         noteLabel.numberOfLines = 0
         globalStack.addArrangedSubview(noteLabel)
 
@@ -104,10 +107,12 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
         // Card 2: Specific Redirect Rule (Old IP -> New IP)
         let ruleCard = UIView()
-        ruleCard.backgroundColor = .white
+        ruleCard.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
         ruleCard.layer.cornerRadius = 12
+        ruleCard.layer.borderWidth = 1
+        ruleCard.layer.borderColor = UIColor(red: 0.28, green: 0.35, blue: 0.46, alpha: 1.0).cgColor
         ruleCard.layer.shadowColor = UIColor.black.cgColor
-        ruleCard.layer.shadowOpacity = 0.05
+        ruleCard.layer.shadowOpacity = 0.2
         ruleCard.layer.shadowOffset = CGSize(width: 0, height: 2)
         ruleCard.layer.shadowRadius = 4
         ruleCard.translatesAutoresizingMaskIntoConstraints = false
@@ -122,7 +127,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         let ruleTitle = UILabel()
         ruleTitle.text = "Hoặc chuyển hướng theo từng máy chủ gốc:"
         ruleTitle.font = .systemFont(ofSize: 14, weight: .semibold)
-        ruleTitle.textColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+        ruleTitle.textColor = UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 1.0)
         ruleStack.addArrangedSubview(ruleTitle)
 
         ruleStack.addArrangedSubview(makeInput(label: "Máy chủ cũ (IP hoặc domain gốc):", field: oldIpField, placeholder: "27.0.14.73 hoặc nso1.teamobi.com"))
@@ -131,6 +136,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
         let addRuleBtn = UIButton(type: .system)
         addRuleBtn.setTitle("➕ Thêm quy tắc chuyển hướng", for: .normal)
+        addRuleBtn.setTitleColor(UIColor(red: 0.40, green: 0.75, blue: 1.0, alpha: 1.0), for: .normal)
         addRuleBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         addRuleBtn.addTarget(self, action: #selector(addRuleTapped), for: .touchUpInside)
         ruleStack.addArrangedSubview(addRuleBtn)
@@ -167,18 +173,23 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
     private func makeInput(label: String, field: UITextField, placeholder: String, isNumber: Bool = false) -> UIView {
         let v = UIStackView()
         v.axis = .vertical
-        v.spacing = 2
+        v.spacing = 3
 
         let l = UILabel()
         l.text = label
-        l.font = .systemFont(ofSize: 12, weight: .medium)
-        l.textColor = .systemGray
+        l.font = .systemFont(ofSize: 12, weight: .bold)
+        l.textColor = UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 1.0)
         v.addArrangedSubview(l)
 
-        field.placeholder = placeholder
+        field.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [
+            .foregroundColor: UIColor(red: 0.55, green: 0.60, blue: 0.70, alpha: 1.0)
+        ])
         field.borderStyle = .roundedRect
-        field.backgroundColor = UIColor(white: 0.97, alpha: 1.0)
-        field.textColor = .black
+        field.backgroundColor = UIColor(red: 0.12, green: 0.14, blue: 0.20, alpha: 1.0)
+        field.textColor = .white
+        field.layer.borderColor = UIColor(red: 0.28, green: 0.35, blue: 0.46, alpha: 1.0).cgColor
+        field.layer.borderWidth = 1
+        field.layer.cornerRadius = 8
         if isNumber { field.keyboardType = .numberPad }
         v.addArrangedSubview(field)
 
@@ -269,8 +280,26 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
 
     func numberOfSections(in tableView: UITableView) -> Int { 1 }
 
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return "Quy tắc chuyển hướng cụ thể (\(rules.count))"
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let container = UIView()
+        let label = UILabel()
+        label.text = "QUY TẮC CHUYỂN HƯỚNG CỤ THỂ (\(rules.count))"
+        label.font = .systemFont(ofSize: 13, weight: .bold)
+        label.textColor = UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 1.0)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
+        ])
+        return container
+    }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return 34
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -280,6 +309,7 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "RuleCell")
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: "RuleCell")
+        cell.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
 
         let rule = rules[indexPath.row]
         let old = rule["old"] ?? ""
@@ -287,11 +317,12 @@ class DecadeChangeIpViewController: UIViewController, UITableViewDataSource, UIT
         let port = rule["port"] ?? ""
 
         cell.textLabel?.text = "\(old) ➔ \(new)"
-        cell.textLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        cell.textLabel?.textColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+        cell.textLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+        cell.textLabel?.textColor = .white
 
         cell.detailTextLabel?.text = port.isEmpty ? "Chuyển tiếp tất cả các cổng" : "Cổng đích: \(port)"
-        cell.detailTextLabel?.textColor = .systemGray
+        cell.detailTextLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        cell.detailTextLabel?.textColor = UIColor(red: 0.35, green: 0.90, blue: 0.55, alpha: 1.0)
 
         return cell
     }

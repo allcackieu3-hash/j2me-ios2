@@ -33,8 +33,9 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        overrideUserInterfaceStyle = .dark
         title = "Quản lý Proxy"
-        view.backgroundColor = UIColor(red: 0.95, green: 0.96, blue: 0.98, alpha: 1.0)
+        view.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1.0)
 
         setupNavBar()
         setupUI()
@@ -98,13 +99,24 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
 
     private func setupUI() {
         segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.backgroundColor = UIColor(red: 0.18, green: 0.22, blue: 0.28, alpha: 1.0)
+        segmentedControl.selectedSegmentTintColor = UIColor(red: 0.18, green: 0.50, blue: 0.95, alpha: 1.0)
+        segmentedControl.setTitleTextAttributes([
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+        ], for: .selected)
+        segmentedControl.setTitleTextAttributes([
+            .foregroundColor: UIColor(red: 0.85, green: 0.88, blue: 0.95, alpha: 1.0),
+            .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+        ], for: .normal)
         segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedControl)
 
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.backgroundColor = .clear
+        tableView.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1.0)
+        tableView.separatorColor = UIColor(red: 0.22, green: 0.26, blue: 0.35, alpha: 1.0)
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "ProxyCell")
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "TabCell")
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -216,10 +228,12 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
         container.backgroundColor = .clear
 
         let card = UIView()
-        card.backgroundColor = .white
+        card.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
         card.layer.cornerRadius = 12
+        card.layer.borderWidth = 1
+        card.layer.borderColor = UIColor(red: 0.28, green: 0.35, blue: 0.46, alpha: 1.0).cgColor
         card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOpacity = 0.05
+        card.layer.shadowOpacity = 0.2
         card.layer.shadowOffset = CGSize(width: 0, height: 2)
         card.layer.shadowRadius = 4
         card.translatesAutoresizingMaskIntoConstraints = false
@@ -234,18 +248,19 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
         // Title row
         let titleLabel = UILabel()
         titleLabel.text = "Proxy đang chọn để gán (Tích tab để gán):"
-        titleLabel.font = .systemFont(ofSize: 12, weight: .bold)
-        titleLabel.textColor = .secondaryLabel
+        titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        titleLabel.textColor = UIColor(red: 0.90, green: 0.94, blue: 1.0, alpha: 1.0)
         stack.addArrangedSubview(titleLabel)
 
         // Selector Button
         let selectorBtn = UIButton(type: .system)
         selectorBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         selectorBtn.contentHorizontalAlignment = .left
-        selectorBtn.backgroundColor = UIColor(red: 0.94, green: 0.96, blue: 1.0, alpha: 1.0)
+        selectorBtn.backgroundColor = UIColor(red: 0.12, green: 0.22, blue: 0.38, alpha: 1.0)
         selectorBtn.layer.cornerRadius = 8
         selectorBtn.layer.borderWidth = 1
-        selectorBtn.layer.borderColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 0.3).cgColor
+        selectorBtn.layer.borderColor = UIColor(red: 0.30, green: 0.55, blue: 0.95, alpha: 0.7).cgColor
+        selectorBtn.setTitleColor(.white, for: .normal)
         selectorBtn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         selectorBtn.addTarget(self, action: #selector(showProxyPickerDropdown), for: .touchUpInside)
         self.headerSelectorBtn = selectorBtn
@@ -316,19 +331,56 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
         }
     }
 
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let title: String?
         if segmentedControl.selectedSegmentIndex == 0 {
-            return "Danh Sách Proxy Đã Lưu (\(proxies.count))"
+            title = "DANH SÁCH PROXY ĐÃ LƯU (\(proxies.count))"
         } else {
             guard section < independentSessions.count else { return nil }
             let s = independentSessions[section]
-            return "Tab Độc Lập \(s.slot + 1): \(s.appName) (\(s.tabs.count) tab con)"
+            title = "TAB ĐỘC LẬP \(s.slot + 1): \(s.appName) (\(s.tabs.count) TAB CON)"
         }
+        guard let t = title else { return nil }
+
+        let container = UIView()
+        let label = UILabel()
+        label.text = t
+        label.font = .systemFont(ofSize: 13, weight: .bold)
+        label.textColor = UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 1.0)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
+        ])
+        return container
     }
 
-    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return 34
+    }
+
+    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
         if segmentedControl.selectedSegmentIndex == 1 && section == independentSessions.count - 1 {
-            return "Chạm vào tab nào để tích [✓] gán proxy đang chọn cho tab đó. Bấm lại để bỏ gán."
+            let container = UIView()
+            let label = UILabel()
+            label.text = "Chạm vào tab nào để tích [✓] gán proxy đang chọn cho tab đó. Bấm lại để bỏ gán."
+            label.font = .systemFont(ofSize: 13, weight: .medium)
+            label.textColor = UIColor(red: 0.80, green: 0.85, blue: 0.95, alpha: 1.0)
+            label.numberOfLines = 0
+            label.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(label)
+
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+                label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+                label.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+                label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
+            ])
+            return container
         }
         return nil
     }
@@ -337,36 +389,34 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
         if segmentedControl.selectedSegmentIndex == 0 {
             // Segment 0: Proxy list
             let cell = tableView.dequeueReusableCell(withIdentifier: "ProxyCell", for: indexPath)
+            cell.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
             let item = proxies[indexPath.row]
 
             var config = cell.defaultContentConfiguration()
             config.text = item.displayTitle
+            config.textProperties.color = .white
             config.textProperties.font = .systemFont(ofSize: 16, weight: .semibold)
             config.secondaryText = item.displaySubtitle
-            config.secondaryTextProperties.font = .systemFont(ofSize: 13)
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.font = .systemFont(ofSize: 13, weight: .medium)
+            config.secondaryTextProperties.color = UIColor(red: 0.82, green: 0.86, blue: 0.95, alpha: 1.0)
             config.image = UIImage(systemName: item.isSocks5 ? "lock.shield.fill" : "network")
-            config.imageProperties.tintColor = item.isSocks5 ? UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0) : .systemGreen
+            config.imageProperties.tintColor = item.isSocks5 ? UIColor(red: 0.35, green: 0.70, blue: 1.0, alpha: 1.0) : UIColor(red: 0.30, green: 0.88, blue: 0.50, alpha: 1.0)
 
             cell.contentConfiguration = config
             cell.accessoryType = .detailDisclosureButton
+            cell.tintColor = UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 1.0)
             return cell
 
         } else {
             // Segment 1: Per-game-tab proxy assignment
             let cell = tableView.dequeueReusableCell(withIdentifier: "TabCell", for: indexPath)
+            cell.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
             let session = independentSessions[indexPath.section]
             let tab = session.tabs[indexPath.row]
             let slotIndex = session.slot
 
             // Format tab title: "Tab 1 - 1 (Ký hiệu: a)" or "Tab 2 - Avatar (Ký hiệu: a)"
-            let displayTitle: String
-            if session.tabs.count == 1 {
-                displayTitle = "Tab \(slotIndex + 1) - \(tab.name)  (Ký hiệu: \(tab.prefix))"
-            } else {
-                displayTitle = "Tab \(slotIndex + 1) - \(tab.name)  (Ký hiệu: \(tab.prefix))"
-            }
-
+            let displayTitle = "Tab \(slotIndex + 1) - \(tab.name)  (Ký hiệu: \(tab.prefix))"
             let assignedProxy = DecadeProxyManager.shared.proxyForTab(appId: session.appName, slot: slotIndex, tabPrefix: tab.prefix)
 
             // Is this tab currently assigned to the selected proxy?
@@ -379,25 +429,27 @@ class DecadeProxyViewController: UIViewController, UITableViewDataSource, UITabl
 
             var config = cell.defaultContentConfiguration()
             config.text = displayTitle
+            config.textProperties.color = .white
             config.textProperties.font = .systemFont(ofSize: 15, weight: .semibold)
 
             if let p = assignedProxy {
                 config.secondaryText = "⚡ Đang dùng: \(p.displayTitle) (\(p.type.uppercased()))"
-                config.secondaryTextProperties.color = UIColor(red: 0.18, green: 0.65, blue: 0.35, alpha: 1.0)
+                config.secondaryTextProperties.color = UIColor(red: 0.35, green: 0.90, blue: 0.55, alpha: 1.0)
             } else {
                 config.secondaryText = "🚫 Mạng trực tiếp (Không dùng proxy)"
-                config.secondaryTextProperties.color = .secondaryLabel
+                config.secondaryTextProperties.color = UIColor(red: 1.0, green: 0.55, blue: 0.55, alpha: 1.0)
             }
+            config.secondaryTextProperties.font = .systemFont(ofSize: 13, weight: .medium)
 
             // Visual Checkbox (Checkmark / Circle)
             if isSelectedForCurrentProxy {
                 config.image = UIImage(systemName: "checkmark.circle.fill")
                 config.imageProperties.tintColor = (selectedProxyId != nil)
-                    ? UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
-                    : UIColor(red: 0.70, green: 0.70, blue: 0.70, alpha: 1.0)
+                    ? UIColor(red: 0.25, green: 0.65, blue: 1.0, alpha: 1.0)
+                    : UIColor(white: 0.80, alpha: 1.0)
             } else {
                 config.image = UIImage(systemName: "circle")
-                config.imageProperties.tintColor = .systemGray4
+                config.imageProperties.tintColor = UIColor(white: 0.60, alpha: 1.0)
             }
 
             cell.contentConfiguration = config

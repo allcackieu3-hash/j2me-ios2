@@ -29,7 +29,8 @@ class DecadeProfilesViewController: UIViewController, UITableViewDataSource, UIT
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
+        overrideUserInterfaceStyle = .dark
+        view.backgroundColor = UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1.0)
         title = "Hồ sơ cấu hình"
 
         setupNavBar()
@@ -77,19 +78,21 @@ class DecadeProfilesViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "ProfileCell")
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: "ProfileCell")
+        cell.backgroundColor = UIColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1.0)
 
         let p = profiles[indexPath.row]
         cell.textLabel?.text = p.name
-        cell.textLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        cell.textLabel?.textColor = .black
+        cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        cell.textLabel?.textColor = .white
 
         cell.detailTextLabel?.text = p.desc
-        cell.detailTextLabel?.textColor = .systemGray
+        cell.detailTextLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        cell.detailTextLabel?.textColor = UIColor(red: 0.82, green: 0.86, blue: 0.95, alpha: 1.0)
         cell.detailTextLabel?.numberOfLines = 2
 
         let isSelected = indexPath.row == activeIndex
         cell.accessoryType = isSelected ? .checkmark : .none
-        cell.tintColor = UIColor(red: 0.12, green: 0.41, blue: 0.82, alpha: 1.0)
+        cell.tintColor = UIColor(red: 0.35, green: 0.70, blue: 1.0, alpha: 1.0)
 
         return cell
     }

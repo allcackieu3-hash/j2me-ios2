@@ -42,6 +42,7 @@ class DecadeHideButtonsDialog: UIViewController, UITableViewDataSource, UITableV
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        overrideUserInterfaceStyle = .light
         view.backgroundColor = UIColor(white: 0, alpha: 0.5)
 
         // Dialog card matching Android Material AlertDialog

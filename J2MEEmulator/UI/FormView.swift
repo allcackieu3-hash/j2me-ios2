@@ -40,6 +40,7 @@ class J2METextBoxView: UIView, UITextViewDelegate {
     }
 
     private func setup() {
+        overrideUserInterfaceStyle = .light
         backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         // White editing canvas
@@ -243,6 +244,7 @@ class FormView: UIView, UITextFieldDelegate {
     }
 
     private func setup() {
+        overrideUserInterfaceStyle = .light
         backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         // Dismiss keyboard when tapping on background
@@ -686,6 +688,7 @@ class J2MEListView: UIView, UITableViewDataSource, UITableViewDelegate {
     }
 
     private func setup() {
+        overrideUserInterfaceStyle = .light
         backgroundColor = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1.0)
 
         tableView.dataSource = self

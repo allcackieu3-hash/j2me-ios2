@@ -99,8 +99,8 @@ class AppsListViewController: UIViewController,
 
         // Empty state
         emptyStateLabel.text = "No Games Yet\nTap + to add a .jar file"
-        emptyStateLabel.textColor = .secondaryLabel
-        emptyStateLabel.font = .systemFont(ofSize: 17)
+        emptyStateLabel.textColor = UIColor(red: 0.25, green: 0.25, blue: 0.30, alpha: 1.0)
+        emptyStateLabel.font = .systemFont(ofSize: 17, weight: .medium)
         emptyStateLabel.textAlignment = .center
         emptyStateLabel.numberOfLines = 0
         emptyStateLabel.isHidden = true
