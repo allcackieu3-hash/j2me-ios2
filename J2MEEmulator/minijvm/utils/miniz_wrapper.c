@@ -1,3 +1,7 @@
+// Fix 2026-11-16: case-sensitive JAR lookup (MZ_ZIP_FLAG_CASE_SENSITIVE).
+// locate_file/extract were called with flags=0 (case-insensitive), so
+// classes differing only by case (e.g. a vs A) could resolve to the wrong
+// file and crash the game on launch.
 #include "miniz.h"
 #include "miniz_wrapper.h"
 
